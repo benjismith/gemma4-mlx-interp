@@ -1,19 +1,23 @@
 """Smoke test for L1 declarative interventions.
 
-For each intervention type, compare against the corresponding hand-rolled
-forward in the original experiment scripts. The new interventions should
-produce numerically identical logits — that's the strongest possible
-"these are equivalent" test.
+For each intervention type whose reference still exists, compare against
+the corresponding hand-rolled forward in the original experiment scripts.
+The new interventions should produce numerically identical logits — that's
+the strongest possible 'these are equivalent' test.
 
-Eight checks:
-  1. Ablate.layer(14)             vs step_02.run_ablated_forward
-  2. Ablate.attention(23)         vs step_04.run_sublayer_ablated (attn)
-  3. Ablate.mlp(14)               vs step_04.run_sublayer_ablated (mlp)
-  4. Ablate.head(29, head=7)      vs step_07.run_head_ablated
-  5. Ablate.side_channel()        vs step_03.run_side_channel_ablated (all)
-  6. Capture.attn_weights([23])   vs step_05.run_with_attention_weights
-  7. Patch.position(10, 13, ...)  vs step_09.forward_with_patch
-  8. Composition: Ablate.head + Capture.per_head_out at the same layer
+As experiments get ported onto the framework (M01-M13), their reference
+hand-rolled forwards disappear from the codebase. Tests are dropped from
+this file as their references vanish; eventually this file's job is done
+and it can be removed entirely.
+
+Currently active checks (one was dropped when step_02 was migrated):
+  1. Ablate.attention(23)         vs step_04.run_sublayer_ablated (attn)
+  2. Ablate.mlp(14)               vs step_04.run_sublayer_ablated (mlp)
+  3. Ablate.head(29, head=7)      vs step_07.run_head_ablated
+  4. Ablate.side_channel()        vs step_03.run_side_channel_ablated (all)
+  5. Capture.attn_weights([23])   vs step_05.run_with_attention_weights
+  6. Patch.position(10, 13, ...)  vs step_09.forward_with_patch
+  7. Composition: Ablate.head + Capture.per_head_out at the same layer
      -> captured tensor's ablated head slice is all zeros
 
 Run from project root with the venv active:
@@ -33,8 +37,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Reference paths from the existing experiments.
-from experiments.step_02_layer_ablation import run_ablated_forward  # noqa: E402
+# Reference paths from the still-unported experiments.
 from experiments.step_03_side_channel_ablation import run_side_channel_ablated  # noqa: E402
 from experiments.step_04_sublayer_ablation import run_sublayer_ablated  # noqa: E402
 from experiments.step_05_attention_patterns import run_with_attention_weights  # noqa: E402
@@ -77,12 +80,7 @@ def main() -> int:
 
     all_pass = True
 
-    # ---- 1. Ablate.layer(14) ----
-    ref = _last_logits_np(run_ablated_forward(model._model, ids, ablate_layer=14))
-    run = _last_logits_np(model.run(ids, interventions=[Ablate.layer(14)]).logits)
-    all_pass &= _check("Ablate.layer(14)", ref, run)
-
-    # ---- 2. Ablate.attention(23) ----
+    # ---- 1. Ablate.attention(23) ----
     ref = _last_logits_np(
         run_sublayer_ablated(model._model, ids, ablate_attn_layer=23)
     )
