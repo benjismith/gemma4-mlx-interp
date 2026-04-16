@@ -10,14 +10,14 @@ hand-rolled forwards disappear from the codebase. Tests are dropped from
 this file as their references vanish; eventually this file's job is done
 and it can be removed entirely.
 
-Currently active checks (one was dropped when step_02 was migrated):
+Currently active checks (Ablate.layer dropped at M02; Ablate.head dropped
+at M07):
   1. Ablate.attention(23)         vs step_04.run_sublayer_ablated (attn)
   2. Ablate.mlp(14)               vs step_04.run_sublayer_ablated (mlp)
-  3. Ablate.head(29, head=7)      vs step_07.run_head_ablated
-  4. Ablate.side_channel()        vs step_03.run_side_channel_ablated (all)
-  5. Capture.attn_weights([23])   vs step_05.run_with_attention_weights
-  6. Patch.position(10, 13, ...)  vs step_09.forward_with_patch
-  7. Composition: Ablate.head + Capture.per_head_out at the same layer
+  3. Ablate.side_channel()        vs step_03.run_side_channel_ablated (all)
+  4. Capture.attn_weights([23])   vs step_05.run_with_attention_weights
+  5. Patch.position(10, 13, ...)  vs step_09.forward_with_patch
+  6. Composition: Ablate.head + Capture.per_head_out at the same layer
      -> captured tensor's ablated head slice is all zeros
 
 Run from project root with the venv active:
@@ -41,7 +41,6 @@ if str(ROOT) not in sys.path:
 from experiments.step_03_side_channel_ablation import run_side_channel_ablated  # noqa: E402
 from experiments.step_04_sublayer_ablation import run_sublayer_ablated  # noqa: E402
 from experiments.step_05_attention_patterns import run_with_attention_weights  # noqa: E402
-from experiments.step_07_single_head_ablation import run_head_ablated  # noqa: E402
 from experiments.step_09_causal_tracing import forward_with_patch  # noqa: E402
 from hooks import run_with_cache  # noqa: E402
 
@@ -94,16 +93,7 @@ def main() -> int:
     run = _last_logits_np(model.run(ids, interventions=[Ablate.mlp(14)]).logits)
     all_pass &= _check("Ablate.mlp(14)", ref, run)
 
-    # ---- 4. Ablate.head(29, head=7) ----
-    ref = _last_logits_np(
-        run_head_ablated(model._model, ids, ablate_layer=29, ablate_head=7)
-    )
-    run = _last_logits_np(
-        model.run(ids, interventions=[Ablate.head(29, head=7)]).logits
-    )
-    all_pass &= _check("Ablate.head(29, head=7)", ref, run)
-
-    # ---- 5. Ablate.side_channel() (all layers) ----
+    # ---- 4. Ablate.side_channel() (all layers) ----
     ref = _last_logits_np(
         run_side_channel_ablated(model._model, ids, ablate_layers=None)
     )
