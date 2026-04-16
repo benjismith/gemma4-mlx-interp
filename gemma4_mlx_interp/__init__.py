@@ -69,6 +69,14 @@ from .hooks import HookFn, HookInfo, parse_hook_name
 from .interventions import Ablate, Capture, Intervention, Patch, compose
 from .lens import logit_lens_final, logit_lens_per_position
 from .model import Model, RunResult
+from .plot import (
+    bar_by_layer,
+    lens_trajectory,
+    logprob_trajectory,
+    pca_scatter,
+    position_heatmap,
+    similarity_heatmap,
+)
 from .prompts import (
     BIG_SWEEP_96,
     FACTUAL_15,
@@ -81,7 +89,7 @@ from .prompts import (
     ValidatedPromptSet,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     # Main API
@@ -116,6 +124,13 @@ __all__ = [
     "cluster_purity",
     "silhouette_cosine",
     "nearest_neighbor_purity",
+    # L3 plot helpers
+    "bar_by_layer",
+    "lens_trajectory",
+    "logprob_trajectory",
+    "position_heatmap",
+    "pca_scatter",
+    "similarity_heatmap",
     # L0 hook types (for users writing raw callbacks)
     "HookInfo",
     "HookFn",
