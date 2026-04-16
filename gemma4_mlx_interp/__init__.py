@@ -1,4 +1,4 @@
-"""gemma4_mlx_interp — a layered mechanistic-interpretability framework for
+"""gemma4_mlx_interp — a mechanistic-interpretability framework for
 Google's Gemma 4 E4B running locally on Apple Silicon via MLX.
 
 Quick start:
@@ -29,10 +29,9 @@ Modify activations with a hook:
 
     result = model.run(ids, hooks={'blocks.14.mlp_out': zero_layer_14_mlp})
 
-L1 (declarative interventions like Ablate / Capture / Patch) and L2
-(prompts, lenses, geometry) are layered on top of these primitives and live
-in their own modules — see gemma4_mlx_interp.interventions etc. when those
-issues land.
+Declarative interventions (Ablate / Capture / Patch), prompt tooling,
+logit-lens + geometry helpers, and matplotlib plot helpers are all
+re-exported from this module — see README.md for the full API tour.
 
 The full list of hook points is at gemma4_mlx_interp.all_hook_names().
 """
@@ -96,13 +95,13 @@ __all__ = [
     "Model",
     "RunResult",
     "ActivationCache",
-    # L1 declarative interventions
+    # Declarative interventions
     "Ablate",
     "Capture",
     "Patch",
     "Intervention",
     "compose",
-    # L2 prompts
+    # Prompts
     "Prompt",
     "PromptSet",
     "ValidatedPrompt",
@@ -112,10 +111,10 @@ __all__ = [
     "STRESS_TEMPLATE_VAR",
     "STRESS_CROSS_LINGUAL",
     "STRESS_CREATIVE",
-    # L2 lens
+    # Logit lens
     "logit_lens_final",
     "logit_lens_per_position",
-    # L2 geometry
+    # Fact vectors + geometry
     "fact_vectors",
     "fact_vectors_at",
     "centroid_decode",
@@ -124,14 +123,14 @@ __all__ = [
     "cluster_purity",
     "silhouette_cosine",
     "nearest_neighbor_purity",
-    # L3 plot helpers
+    # Plot helpers
     "bar_by_layer",
     "lens_trajectory",
     "logprob_trajectory",
     "position_heatmap",
     "pca_scatter",
     "similarity_heatmap",
-    # L0 hook types (for users writing raw callbacks)
+    # Hook types (for users writing raw callbacks)
     "HookInfo",
     "HookFn",
     "parse_hook_name",

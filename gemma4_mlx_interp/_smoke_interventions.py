@@ -1,10 +1,10 @@
-"""Smoke test for L1 declarative interventions.
+"""Smoke test for declarative-intervention composition.
 
-All seven L1 reference checks have been migrated away (Ablate.layer at
-M02, Ablate.attention/.mlp at M04, Ablate.side_channel at M03,
-Ablate.head at M07, Capture.attn_weights at M06, Patch.position at M09).
-The corresponding hand-rolled forwards in the original experiments no
-longer exist — the framework code IS the reference path now.
+All seven intervention-vs-reference checks have been migrated away
+(Ablate.layer at M02, Ablate.attention/.mlp at M04, Ablate.side_channel
+at M03, Ablate.head at M07, Capture.attn_weights at M06, Patch.position
+at M09). The corresponding hand-rolled forwards in the original
+experiments no longer exist — the framework code IS the reference path now.
 
 This file now exercises only the composition mechanic (interventions on
 the same hook point chain correctly), since that's framework-internal
@@ -15,7 +15,7 @@ behavior that no migration validates on its own.
        still carry signal
 
 Run from project root with the venv active:
-    python -m gemma4_mlx_interp._smoke_l1
+    python -m gemma4_mlx_interp._smoke_interventions
 """
 
 from __future__ import annotations
@@ -57,9 +57,9 @@ def main() -> int:
     )
 
     if not ok:
-        print("\nL1 COMPOSITION SMOKE TEST FAILED.")
+        print("\nINTERVENTION-COMPOSITION SMOKE TEST FAILED.")
         return 1
-    print("\nL1 composition smoke test passed.")
+    print("\nIntervention-composition smoke test passed.")
     return 0
 
 

@@ -132,19 +132,19 @@ class Model:
 
         Args:
             input_ids: Output of self.tokenize(prompt). Shape [1, seq_len].
-            hooks: Raw L0 hook dict. Map of hook-point name -> callback. Each
+            hooks: Raw hook dict. Map of hook-point name -> callback. Each
                 callback receives (activation, HookInfo) and returns either
                 None (leave unchanged) or a replacement mx.array of the same
                 shape and dtype.
-            capture: Raw L0 capture list. Names of hook points whose post-hook
+            capture: Raw capture list. Names of hook points whose post-hook
                 activation should be saved into result.cache. Captures happen
                 AFTER any user hook at the same point, so the recorded value
                 reflects any modification.
-            interventions: L1 sugar. List of Intervention objects (e.g.
-                Ablate.layer(14), Capture.attn_weights([23, 29])) that compile
-                to hooks + capture. May be combined freely with raw hooks/
-                capture; when several callbacks target the same point they
-                chain in declaration order.
+            interventions: Declarative-intervention sugar. List of Intervention
+                objects (e.g. Ablate.layer(14), Capture.attn_weights([23, 29]))
+                that compile to hooks + capture. May be combined freely with
+                raw hooks/capture; when several callbacks target the same
+                point they chain in declaration order.
 
         Returns:
             RunResult(logits, cache).

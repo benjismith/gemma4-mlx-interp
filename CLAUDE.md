@@ -47,12 +47,13 @@ Mechanistic interpretability experiments on Google's Gemma 4 models, running loc
 
 The package at `gemma4_mlx_interp/` is the canonical interface to the model. **Every experiment script imports from it; nothing in the project should call `model.language_model(input_ids)` directly anymore.** It was extracted from the prototype `forward.py` + `hooks.py` modules during the migration epic (closed: `qbf` + 17 children).
 
-Layered design:
+Public surface (everything below is re-exported from the top-level package):
 
-- **L0** — `Model.load()`, `Model.run(input_ids, hooks={}, capture=[])`, `ActivationCache`. The hook-aware forward pass with 294 named hook points (`blocks.{i}.resid_pre/mid/post/attn_out/mlp_out/gate_out/attn.weights/attn.per_head_out`). TransformerLens-style callback contract.
-- **L1** — `Ablate` / `Capture` / `Patch` declarative interventions on top of L0. Pass a list as `interventions=[...]` to `Model.run`. Multiple interventions on the same hook point chain in declaration order.
-- **L2** — `Prompt` / `PromptSet` / `validate`, the canonical prompt sets (`FACTUAL_15`, `BIG_SWEEP_96`, `STRESS_TEMPLATE_VAR/CROSS_LINGUAL/CREATIVE`), `logit_lens_final` / `logit_lens_per_position`, `fact_vectors` / `fact_vectors_at`, `centroid_decode`, plus `cosine_matrix` / `cluster_purity` / `silhouette_cosine` / `nearest_neighbor_purity` / `intra_inter_separation`.
-- **L3** — `bar_by_layer`, `lens_trajectory`, `logprob_trajectory`, `position_heatmap`, `pca_scatter`, `similarity_heatmap`. Optional layer; every plot can still be hand-rolled.
+- **Forward + hooks:** `Model.load()`, `Model.run(input_ids, hooks={}, capture=[])`, `ActivationCache`. The hook-aware forward pass with 294 named hook points (`blocks.{i}.resid_pre/mid/post/attn_out/mlp_out/gate_out/attn.weights/attn.per_head_out`). TransformerLens-style callback contract.
+- **Declarative interventions:** `Ablate` / `Capture` / `Patch`, plus `compose`. Pass a list as `interventions=[...]` to `Model.run`. Multiple interventions on the same hook point chain in declaration order.
+- **Prompt tooling:** `Prompt` / `PromptSet` / `validate`, the canonical prompt sets (`FACTUAL_15`, `BIG_SWEEP_96`, `STRESS_TEMPLATE_VAR/CROSS_LINGUAL/CREATIVE`).
+- **Analysis helpers:** `logit_lens_final` / `logit_lens_per_position`, `fact_vectors` / `fact_vectors_at`, `centroid_decode`, plus `cosine_matrix` / `cluster_purity` / `silhouette_cosine` / `nearest_neighbor_purity` / `intra_inter_separation`.
+- **Plot helpers:** `bar_by_layer`, `lens_trajectory`, `logprob_trajectory`, `position_heatmap`, `pca_scatter`, `similarity_heatmap`. Conventions baked in; every plot can still be hand-rolled.
 
 Quickstart:
 
@@ -72,7 +73,7 @@ result = model.run(ids, interventions=[                    # capture + ablation
 
 See `gemma4_mlx_interp/README.md` for the full API tour and worked examples.
 
-Smoke tests live next to the package: `python -m gemma4_mlx_interp._smoke` (L0 semantic check), `_smoke_l1` (composition), `_smoke_l2` (reproduces published findings 01/11/12 numbers), `_smoke_l3` (plot helpers vs synthetic data).
+Smoke tests live next to the package: `python -m gemma4_mlx_interp._smoke` (forward path), `_smoke_interventions` (composition), `_smoke_analysis` (reproduces published findings 01/11/12 numbers), `_smoke_plots` (plot helpers vs synthetic data).
 
 ## Code style and conventions
 
@@ -93,7 +94,7 @@ gemma4-mlx-interp/
 ├── .venv/                     # Python 3.11 venv (don't commit)
 ├── CLAUDE.md                  # This file
 ├── benchmark.py               # Latency benchmarks for Model.run + capture configs
-├── gemma4_mlx_interp/         # The framework (L0-L3)
+├── gemma4_mlx_interp/         # The framework
 │   ├── __init__.py            # Public API re-exports
 │   ├── _arch.py               # E4B architectural constants + hook registry
 │   ├── _forward.py            # Canonical hook-aware forward pass (THE forward)
@@ -110,10 +111,10 @@ gemma4-mlx-interp/
 │   │   ├── big_sweep.py       # BIG_SWEEP_96 (12 categories)
 │   │   └── stress.py          # STRESS_TEMPLATE_VAR / CROSS_LINGUAL / CREATIVE
 │   ├── errors.py              # InvalidHookName / CacheKeyError / etc.
-│   ├── _smoke.py              # L0 semantic smoke test
-│   ├── _smoke_l1.py           # Composition smoke test
-│   ├── _smoke_l2.py           # Reproduces findings 01/11/12 numbers
-│   ├── _smoke_l3.py           # Plot helpers vs synthetic data
+│   ├── _smoke.py              # Forward-path smoke test
+│   ├── _smoke_interventions.py  # Composition smoke test
+│   ├── _smoke_analysis.py     # Reproduces findings 01/11/12 numbers
+│   ├── _smoke_plots.py        # Plot helpers vs synthetic data
 │   └── README.md              # User-facing framework docs
 ├── experiments/               # Numbered scripts using the framework
 │   ├── step_01_logit_lens_batch.py

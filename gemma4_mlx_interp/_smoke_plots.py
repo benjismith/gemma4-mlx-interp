@@ -1,13 +1,13 @@
-"""Smoke test for L3 plot helpers.
+"""Smoke test for plot helpers.
 
 Synthetic-data only — no model load. Each helper is called with realistic
 inputs and asserted to (a) return an Axes, (b) not raise, (c) save to a
-PNG that the human can spot-check. The PNGs land in caches/_smoke_l3/.
+PNG that the human can spot-check. The PNGs land in caches/_smoke_plots/.
 
 Run from project root (no venv strictly required since this is matplotlib +
 numpy + sklearn only — but use the venv for reproducibility):
 
-    python -m gemma4_mlx_interp._smoke_l3
+    python -m gemma4_mlx_interp._smoke_plots
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from . import (
     similarity_heatmap,
 )
 
-OUT_DIR = Path(__file__).resolve().parent.parent / "caches" / "_smoke_l3"
+OUT_DIR = Path(__file__).resolve().parent.parent / "caches" / "_smoke_plots"
 
 
 def _save(fig, name: str) -> Path:
@@ -163,9 +163,9 @@ def main() -> int:
             failed.append(name)
 
     if failed:
-        print(f"\nL3 SMOKE TEST FAILED: {failed}")
+        print(f"\nPLOTS SMOKE TEST FAILED: {failed}")
         return 1
-    print("\nL3 smoke test passed. All 6 plot helpers render without error.")
+    print("\nPlots smoke test passed. All 6 plot helpers render without error.")
     print(f"Spot-check the PNGs in {OUT_DIR}/ to verify visual conventions.")
     return 0
 

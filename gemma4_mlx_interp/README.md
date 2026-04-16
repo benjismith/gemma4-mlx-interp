@@ -24,18 +24,18 @@ for tok, p in result.top_k(model.tokenizer, k=5):
 
 ## What's in the box
 
-The framework is organized as four layers. Higher layers are sugar over lower ones, and every layer can be used directly.
+There's a rough dependency gradient — forward-pass + hook machinery is the foundation, and interventions, analysis helpers, and plot helpers sit on top. Every piece can be used directly; the grouping is just a navigation aid.
 
-| Layer | What you get | When you'd use it |
+| Module surface | What you get | When you'd use it |
 |:-----:|-------------|-------------------|
-| **L0** | `Model.run(input_ids, hooks={}, capture=[])` — TransformerLens-style callbacks at 294 named hook points | You're writing a custom intervention that L1 doesn't support |
-| **L1** | `Ablate` / `Capture` / `Patch` declarative interventions composable in a list | Day-to-day experiment scripts. Most code lives here |
-| **L2** | `Prompt` / `PromptSet` / `validate`, `logit_lens_*`, `fact_vectors*`, `centroid_decode`, geometry stats | Analyses that need the standard scaffolding — logit lens trajectories, fact-vector clustering, etc. |
-| **L3** | `bar_by_layer`, `lens_trajectory`, `position_heatmap`, `pca_scatter`, `similarity_heatmap` | You want the project's plot conventions (red=global, blue=local, dashed lines at global layers) without rewriting them |
+| **Forward + hooks** | `Model.run(input_ids, hooks={}, capture=[])` — TransformerLens-style callbacks at 294 named hook points | You're writing a custom intervention that the declarative ones don't support |
+| **Interventions** | `Ablate` / `Capture` / `Patch` composable in a list | Day-to-day experiment scripts. Most code lives here |
+| **Prompts, lens, geometry** | `Prompt` / `PromptSet` / `validate`, `logit_lens_*`, `fact_vectors*`, `centroid_decode`, geometry stats | Analyses that need the standard scaffolding — logit lens trajectories, fact-vector clustering, etc. |
+| **Plot helpers** | `bar_by_layer`, `lens_trajectory`, `position_heatmap`, `pca_scatter`, `similarity_heatmap` | You want the project's plot conventions (red=global, blue=local, dashed lines at global layers) without rewriting them |
 
 ---
 
-## L0: Forward pass + hooks
+## Forward pass + hooks
 
 ```python
 from gemma4_mlx_interp import Model, all_hook_names
@@ -85,9 +85,9 @@ Typos raise `InvalidHookName` with a `difflib.get_close_matches` suggestion. Out
 
 ---
 
-## L1: Declarative interventions
+## Declarative interventions
 
-Pass a list of `Intervention` objects as `interventions=[...]`. Each compiles to one or more L0 hook callbacks plus optional captures, and the framework composes them:
+Pass a list of `Intervention` objects as `interventions=[...]`. Each compiles to one or more hook callbacks plus optional captures, and the framework composes them:
 
 ```python
 from gemma4_mlx_interp import Ablate, Capture, Patch
@@ -145,7 +145,7 @@ captured = result.cache["blocks.29.attn.per_head_out"]
 
 ---
 
-## L2: Prompts, lens, geometry
+## Prompts, lens, geometry
 
 ### Prompt + PromptSet
 
@@ -237,7 +237,7 @@ Each takes numpy arrays; no model dependency.
 
 ---
 
-## L3: Plot helpers
+## Plot helpers
 
 Each helper takes numpy arrays plus an optional `ax` (creates a new figure if None), returns the `Axes`, and never calls `plt.show()` or `fig.savefig()` — the caller owns those.
 
@@ -331,10 +331,10 @@ similarity_heatmap(vecs, labels)
 Four self-contained smoke tests live next to the package:
 
 ```bash
-python -m gemma4_mlx_interp._smoke      # L0: semantic top-1 on FACTUAL_15-style prompts
-python -m gemma4_mlx_interp._smoke_l1   # L1: composition (Ablate.head + Capture.per_head_out)
-python -m gemma4_mlx_interp._smoke_l2   # L2: reproduces findings 01 / 11 / 12 numbers
-python -m gemma4_mlx_interp._smoke_l3   # L3: renders each plot helper on synthetic data
+python -m gemma4_mlx_interp._smoke                # forward path: semantic top-1 on FACTUAL_15-style prompts
+python -m gemma4_mlx_interp._smoke_interventions  # composition: Ablate.head + Capture.per_head_out
+python -m gemma4_mlx_interp._smoke_analysis       # analysis: reproduces findings 01 / 11 / 12 numbers
+python -m gemma4_mlx_interp._smoke_plots          # plots: renders each helper on synthetic data
 ```
 
 Run any of them after a framework change to catch regressions.
@@ -372,8 +372,8 @@ gemma4_mlx_interp/
 │   ├── big_sweep.py  # BIG_SWEEP_96
 │   └── stress.py     # STRESS_*
 ├── errors.py         # InvalidHookName / LayerIndexOutOfRange / CacheKeyError
-├── _smoke.py         # L0 smoke test
-├── _smoke_l1.py      # L1 composition smoke test
-├── _smoke_l2.py      # L2 reproduce-findings smoke test
-└── _smoke_l3.py      # L3 plot-helpers smoke test
+├── _smoke.py                  # Forward-path smoke test
+├── _smoke_interventions.py    # Composition smoke test
+├── _smoke_analysis.py         # Reproduce-findings smoke test
+└── _smoke_plots.py            # Plot-helpers smoke test
 ```

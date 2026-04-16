@@ -1,4 +1,4 @@
-"""Smoke test for the L0 canonical hook-aware forward pass.
+"""Smoke test for the canonical hook-aware forward pass.
 
 Acceptance criterion: Model.run produces the expected top-1 next-token on
 each FACTUAL_15-style prompt. These prompts are chosen because Gemma 4 E4B
@@ -41,7 +41,7 @@ def main() -> int:
     print(f"Loaded in {time.perf_counter() - t0:.1f}s. "
           f"({len(all_hook_names())} hook points exposed.)")
 
-    print(f"\nL0 smoke test on {len(PROMPTS)} prompts.\n")
+    print(f"\nForward smoke test on {len(PROMPTS)} prompts.\n")
     print(f"  {'expected':>11}  {'top1 (run)':>14}  {'p':>6}  {'match':>5}")
     print("  " + "-" * 50)
 
@@ -61,11 +61,11 @@ def main() -> int:
 
     print()
     if not all_pass:
-        print("L0 SMOKE TEST FAILED: Model.run produced the wrong token on some prompt.")
+        print("FORWARD SMOKE TEST FAILED: Model.run produced the wrong token on some prompt.")
         print("Investigate _forward.py — the canonical forward path is broken.")
         return 1
 
-    print("L0 smoke test passed.")
+    print("Forward smoke test passed.")
     print("Model.run produces the expected top-1 token on all prompts.")
     return 0
 

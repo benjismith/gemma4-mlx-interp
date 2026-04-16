@@ -1,6 +1,6 @@
-"""L1: declarative interventions.
+"""Declarative interventions.
 
-Each Intervention compiles to one or more L0 hook callbacks plus zero or more
+Each Intervention compiles to one or more hook callbacks plus zero or more
 capture names. Pass a list of interventions to Model.run(interventions=[...])
 and the framework composes them into the underlying hooks/capture call.
 
@@ -408,7 +408,7 @@ def compose(
     capture: Iterable[str] | None = None,
 ) -> tuple[dict[str, HookFn], list[str]]:
     """Combine interventions, raw hooks, and raw captures into the
-    (hooks_dict, capture_list) pair the L0 forward expects.
+    (hooks_dict, capture_list) pair the forward pass expects.
 
     Composition rule:
       - Interventions are processed in iteration order; their hooks are
@@ -416,8 +416,8 @@ def compose(
       - Raw `hooks` are registered next.
       - When several callbacks target the same hook point, they chain in
         registration order (earlier wraps later -> later wraps everything).
-      - Captures are concatenated; duplicates are tolerated (the L0 forward
-        treats capture as a set).
+      - Captures are concatenated; duplicates are tolerated (the forward
+        pass treats capture as a set).
 
     Used internally by Model.run when the user passes interventions=. Exposed
     as a public helper so power users can build hook dicts manually too.

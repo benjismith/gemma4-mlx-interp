@@ -1,4 +1,4 @@
-"""L3: matplotlib plot helpers with project conventions baked in.
+"""Matplotlib plot helpers with project conventions baked in.
 
 Five helpers covering every plot style used by the existing experiments:
 

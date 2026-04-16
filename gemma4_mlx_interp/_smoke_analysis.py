@@ -1,4 +1,4 @@
-"""Smoke test for L2 — prompts, lens, geometry.
+"""Smoke test for analysis helpers — prompts, lens, geometry.
 
 Five integration checks against the model:
 
@@ -17,7 +17,7 @@ Five integration checks against the model:
      should be ~1.0 (per finding 12).
 
 Run from project root with the venv active:
-    python -m gemma4_mlx_interp._smoke_l2
+    python -m gemma4_mlx_interp._smoke_analysis
 """
 
 from __future__ import annotations
@@ -162,11 +162,10 @@ def main() -> int:
 
     print()
     if not all_pass:
-        print("L2 SMOKE TEST FAILED.")
+        print("ANALYSIS SMOKE TEST FAILED.")
         return 1
-    print("L2 smoke test passed.")
+    print("Analysis smoke test passed.")
     print("Prompts, lens, fact vectors, centroid decoding, geometry stats all working.")
-    print("L2 is ready; remaining migrations may begin.")
     return 0
 
 

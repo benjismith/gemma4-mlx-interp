@@ -122,7 +122,7 @@ def main():
     ax.axhline(0, color="black", linewidth=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Bottom: per-layer single ablation (uses L3 helper)
+    # Bottom: per-layer single ablation (uses bar_by_layer)
     bar_by_layer(
         mean_per_layer, ax=axes[1],
         ylabel="mean Δ log p(target)",

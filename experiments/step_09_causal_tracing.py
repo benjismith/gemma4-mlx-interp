@@ -130,7 +130,7 @@ def main():
             print(f"  {L:>5}  {P:>4}  {token_labels_corrupt[P]:>12s}  "
                   f"{recovery[L, P]:>+8.3f}   {patch_results[L, P]:>7.3f}")
 
-        # Two-panel heatmap using the L3 helper
+        # Two-panel heatmap using position_heatmap
         fig, axes = plt.subplots(1, 2, figsize=(max(12, seq_len * 0.6), 8))
 
         position_heatmap(
