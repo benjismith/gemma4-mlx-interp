@@ -15,6 +15,7 @@ from typing import Iterable
 import mlx.core as mx
 import numpy as np
 from mlx_vlm import load
+from mlx_vlm.models.gemma4.language import logit_softcap
 from mlx_vlm.prompt_utils import apply_chat_template
 from mlx_vlm.utils import prepare_inputs
 
@@ -166,3 +167,20 @@ class Model:
         """Validate every name; raises on the first invalid one."""
         for n in names:
             parse_hook_name(n)
+
+    def project_to_logits(self, residual: mx.array) -> mx.array:
+        """Apply the model's final RMSNorm + tied unembed (+ optional softcap)
+        to a residual-stream tensor.
+
+        Used by logit-lens helpers (lens.py) and centroid decoding (geometry.py)
+        to read off what an intermediate representation 'predicts' if the rest
+        of the network were a no-op. Accepts any tensor whose last dimension
+        is D_MODEL; the projection is applied along that axis.
+        """
+        lm = self._model.language_model
+        tm = lm.model
+        h = tm.norm(residual)
+        logits = tm.embed_tokens.as_linear(h)
+        if lm.final_logit_softcapping is not None:
+            logits = logit_softcap(lm.final_logit_softcapping, logits)
+        return logits

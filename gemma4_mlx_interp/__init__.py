@@ -55,11 +55,33 @@ from .errors import (
     InvalidHookName,
     LayerIndexOutOfRange,
 )
+from .geometry import (
+    centroid_decode,
+    cluster_purity,
+    cosine_matrix,
+    fact_vectors,
+    fact_vectors_at,
+    intra_inter_separation,
+    nearest_neighbor_purity,
+    silhouette_cosine,
+)
 from .hooks import HookFn, HookInfo, parse_hook_name
 from .interventions import Ablate, Capture, Intervention, Patch, compose
+from .lens import logit_lens_final, logit_lens_per_position
 from .model import Model, RunResult
+from .prompts import (
+    BIG_SWEEP_96,
+    FACTUAL_15,
+    STRESS_CREATIVE,
+    STRESS_CROSS_LINGUAL,
+    STRESS_TEMPLATE_VAR,
+    Prompt,
+    PromptSet,
+    ValidatedPrompt,
+    ValidatedPromptSet,
+)
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     # Main API
@@ -72,6 +94,28 @@ __all__ = [
     "Patch",
     "Intervention",
     "compose",
+    # L2 prompts
+    "Prompt",
+    "PromptSet",
+    "ValidatedPrompt",
+    "ValidatedPromptSet",
+    "FACTUAL_15",
+    "BIG_SWEEP_96",
+    "STRESS_TEMPLATE_VAR",
+    "STRESS_CROSS_LINGUAL",
+    "STRESS_CREATIVE",
+    # L2 lens
+    "logit_lens_final",
+    "logit_lens_per_position",
+    # L2 geometry
+    "fact_vectors",
+    "fact_vectors_at",
+    "centroid_decode",
+    "cosine_matrix",
+    "intra_inter_separation",
+    "cluster_purity",
+    "silhouette_cosine",
+    "nearest_neighbor_purity",
     # L0 hook types (for users writing raw callbacks)
     "HookInfo",
     "HookFn",
