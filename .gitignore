@@ -1,0 +1,16 @@
+.venv/
+.DS_Store
+__pycache__/
+*.pyc
+
+# Activation caches and scratch notes (per CLAUDE.md)
+caches/
+notes/
+
+# Saved activation files
+*.npz
+*.safetensors
+
+# Editor / IDE
+.vscode/
+.idea/
