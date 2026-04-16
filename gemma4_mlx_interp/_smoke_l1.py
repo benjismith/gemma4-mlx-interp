@@ -1,21 +1,18 @@
 """Smoke test for L1 declarative interventions.
 
-For each intervention type whose reference still exists, compare against
-the corresponding hand-rolled forward in the original experiment scripts.
-The new interventions should produce numerically identical logits — that's
-the strongest possible 'these are equivalent' test.
+All seven L1 reference checks have been migrated away (Ablate.layer at
+M02, Ablate.attention/.mlp at M04, Ablate.side_channel at M03,
+Ablate.head at M07, Capture.attn_weights at M06, Patch.position at M09).
+The corresponding hand-rolled forwards in the original experiments no
+longer exist — the framework code IS the reference path now.
 
-As experiments get ported onto the framework (M01-M13), their reference
-hand-rolled forwards disappear from the codebase. Tests are dropped from
-this file as their references vanish; eventually this file's job is done
-and it can be removed entirely.
+This file now exercises only the composition mechanic (interventions on
+the same hook point chain correctly), since that's framework-internal
+behavior that no migration validates on its own.
 
-Currently active checks (Ablate.layer at M02; Ablate.head at M07;
-Ablate.side_channel at M03; Ablate.attention/.mlp at M04;
-Capture.attn_weights at M06):
-  1. Patch.position(10, 13, ...)  vs step_09.forward_with_patch
-  2. Composition: Ablate.head + Capture.per_head_out at the same layer
-     -> captured tensor's ablated head slice is all zeros
+  Composition: Ablate.head + Capture.per_head_out at the same layer
+    -> captured tensor's ablated head slice is all zeros, other heads
+       still carry signal
 
 Run from project root with the venv active:
     python -m gemma4_mlx_interp._smoke_l1
@@ -25,40 +22,11 @@ from __future__ import annotations
 
 import sys
 import time
-from pathlib import Path
 
 import mlx.core as mx
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-# Reference paths from the still-unported experiments.
-from experiments.step_09_causal_tracing import forward_with_patch  # noqa: E402
-from hooks import run_with_cache  # noqa: E402
-
-from . import Ablate, Capture, Model, Patch  # noqa: E402
-
-PROMPT = "Complete this sentence with one word: The Eiffel Tower is in"
-PROMPT_CLEAN = PROMPT
-PROMPT_CORRUPT = "Complete this sentence with one word: The Great Wall is in"
-
-# bf16 path identity should give bitwise-equal logits for identical arithmetic.
-TOLERANCE = 1e-3
-
-
-def _last_logits_np(logits: mx.array) -> np.ndarray:
-    return np.array(logits[0, -1, :].astype(mx.float32))
-
-
-def _check(name: str, ref: np.ndarray, run: np.ndarray) -> bool:
-    delta = float(np.max(np.abs(ref - run)))
-    arg_match = int(np.argmax(ref)) == int(np.argmax(run))
-    ok = delta < TOLERANCE and arg_match
-    marker = "OK" if ok else "FAIL"
-    print(f"  [{marker:>4}] {name:<60s}  max|Δ|={delta:.6e}  argmax_match={arg_match}")
-    return ok
+from . import Ablate, Capture, Model
 
 
 def main() -> int:
@@ -67,52 +35,31 @@ def main() -> int:
     model = Model.load()
     print(f"Loaded in {time.perf_counter() - t0:.1f}s.\n")
 
-    ids = model.tokenize(PROMPT)
-    ids_clean = model.tokenize(PROMPT_CLEAN)
-    ids_corrupt = model.tokenize(PROMPT_CORRUPT)
-
-    all_pass = True
-
-    # ---- 7. Patch.position(layer=10, pos=13) for causal tracing ----
-    # Build clean cache via L1 Capture, then patch into corrupt run.
-    clean_result = model.run(
-        ids_clean, interventions=[Capture.residual(layers=range(42), point="post")],
+    ids = model.tokenize(
+        "Complete this sentence with one word: The Eiffel Tower is in"
     )
-    # Reference: step_09's forward_with_patch needs clean_resid_post as a
-    # dict[layer_idx -> tensor]. Build it from the prototype hooks path.
-    _, prototype_clean_cache = run_with_cache(model._model, ids_clean)
-    clean_resid_dict = {
-        i: prototype_clean_cache[f"blocks.{i}.resid_post"] for i in range(42)
-    }
-    ref = _last_logits_np(forward_with_patch(
-        model._model, ids_corrupt,
-        clean_resid_post=clean_resid_dict, patch_layer=10, patch_position=13,
-    ))
-    run = _last_logits_np(model.run(ids_corrupt, interventions=[
-        Patch.position(layer=10, position=13, source=clean_result.cache),
-    ]).logits)
-    all_pass &= _check("Patch.position(layer=10, pos=13)", ref, run)
 
-    # ---- 8. Composition: Ablate.head + Capture.per_head_out same layer ----
     result = model.run(ids, interventions=[
         Ablate.head(29, head=7),
         Capture.per_head_out([29]),
     ])
-    captured = np.array(result.cache["blocks.29.attn.per_head_out"].astype(mx.float32))
+    captured = np.array(
+        result.cache["blocks.29.attn.per_head_out"].astype(mx.float32)
+    )
     head7_zero = bool(np.all(captured[:, 7, :, :] == 0))
     other_heads_nonzero = bool(np.any(captured[:, 0, :, :] != 0))
-    ok_comp = head7_zero and other_heads_nonzero
-    print(f"  [{'OK' if ok_comp else 'FAIL':>4}] Composition: Ablate.head + Capture.per_head_out"
-          f"  head7_all_zero={head7_zero}  other_heads_have_signal={other_heads_nonzero}")
-    all_pass &= ok_comp
+    ok = head7_zero and other_heads_nonzero
+    print(
+        f"  [{'OK' if ok else 'FAIL'}] "
+        f"Composition: Ablate.head(29, head=7) + Capture.per_head_out([29])\n"
+        f"        head7_all_zero={head7_zero}  "
+        f"other_heads_have_signal={other_heads_nonzero}"
+    )
 
-    print()
-    if not all_pass:
-        print("L1 SMOKE TEST FAILED. Some intervention does not match its reference.")
+    if not ok:
+        print("\nL1 COMPOSITION SMOKE TEST FAILED.")
         return 1
-
-    print("L1 smoke test passed. All interventions are numerically equivalent")
-    print("to their hand-rolled reference forwards. L1 is ready.")
+    print("\nL1 composition smoke test passed.")
     return 0
 
 
