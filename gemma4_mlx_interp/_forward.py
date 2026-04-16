@@ -31,7 +31,7 @@ from mlx_vlm.models.base import create_attention_mask
 from mlx_vlm.models.gemma4.language import logit_softcap
 
 from .cache import ActivationCache
-from .hooks import HookFn, HookInfo, needs_attn_internals
+from .hooks import HookFn, HookInfo, attn_internal_layers
 
 
 def _dispatch(
@@ -169,10 +169,13 @@ def run_forward(
     hooks = dict(hooks or {})
     capture_set = set(capture or [])
 
-    # Decide the attention path. Manual is slower but exposes weights;
-    # fused is faster but opaque. Use fused unless the caller specifically
-    # wants the internals.
-    use_manual_attn = needs_attn_internals(set(hooks.keys()) | capture_set)
+    # Per-layer attention path selection. Manual softmax is slower than the
+    # fused SDPA kernel and produces slightly different bf16 rounding, so we
+    # only use it at layers where the user wants to inspect attention
+    # internals. Other layers stay on the fused path. This keeps the residual
+    # stream bitwise-equivalent with mlx_vlm's standard forward at every
+    # layer the user isn't actively probing.
+    manual_attn_layer_set = attn_internal_layers(set(hooks.keys()) | capture_set)
 
     cache = ActivationCache()
     lm = model.language_model
@@ -218,7 +221,7 @@ def run_forward(
 
         # ---- Attention branch ----
         x_normed = layer.input_layernorm(h)
-        if use_manual_attn:
+        if i in manual_attn_layer_set:
             a = _attention_with_internals(
                 layer, x_normed, local_mask, c,
                 hooks=hooks, capture_set=capture_set, cache=cache, layer_idx=i,

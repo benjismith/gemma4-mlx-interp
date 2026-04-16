@@ -56,16 +56,23 @@ from .errors import (
     LayerIndexOutOfRange,
 )
 from .hooks import HookFn, HookInfo, parse_hook_name
+from .interventions import Ablate, Capture, Intervention, Patch, compose
 from .model import Model, RunResult
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # Main API
     "Model",
     "RunResult",
     "ActivationCache",
-    # Hook types (for users writing callbacks)
+    # L1 declarative interventions
+    "Ablate",
+    "Capture",
+    "Patch",
+    "Intervention",
+    "compose",
+    # L0 hook types (for users writing raw callbacks)
     "HookInfo",
     "HookFn",
     "parse_hook_name",

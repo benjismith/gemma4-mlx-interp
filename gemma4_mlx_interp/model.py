@@ -22,6 +22,7 @@ from . import _arch
 from ._forward import run_forward
 from .cache import ActivationCache
 from .hooks import HookFn, parse_hook_name
+from .interventions import Intervention, compose
 
 
 @dataclass(frozen=True)
@@ -124,34 +125,40 @@ class Model:
         *,
         hooks: dict[str, HookFn] | None = None,
         capture: list[str] | None = None,
+        interventions: list[Intervention] | None = None,
     ) -> RunResult:
         """Run a forward pass with optional hook callbacks and tensor capture.
 
         Args:
             input_ids: Output of self.tokenize(prompt). Shape [1, seq_len].
-            hooks: Map of hook-point name -> callback. Each callback receives
-                (activation, HookInfo) and returns either None (leave
-                unchanged) or a replacement mx.array of the same shape and
-                dtype. Hook callbacks are invoked at the moment the named
-                activation is computed; subsequent computation sees the
-                replacement (if any).
-            capture: Names of hook points whose post-hook activation should
-                be saved into result.cache. Captures happen AFTER any user
-                hook at the same point, so the recorded value reflects any
-                modification.
+            hooks: Raw L0 hook dict. Map of hook-point name -> callback. Each
+                callback receives (activation, HookInfo) and returns either
+                None (leave unchanged) or a replacement mx.array of the same
+                shape and dtype.
+            capture: Raw L0 capture list. Names of hook points whose post-hook
+                activation should be saved into result.cache. Captures happen
+                AFTER any user hook at the same point, so the recorded value
+                reflects any modification.
+            interventions: L1 sugar. List of Intervention objects (e.g.
+                Ablate.layer(14), Capture.attn_weights([23, 29])) that compile
+                to hooks + capture. May be combined freely with raw hooks/
+                capture; when several callbacks target the same point they
+                chain in declaration order.
 
         Returns:
             RunResult(logits, cache).
 
         Raises:
-            InvalidHookName: A name in hooks or capture isn't a known hook
-                point. Error message includes typo suggestions.
+            InvalidHookName: A name in hooks/capture/interventions isn't a
+                known hook point. Error message includes typo suggestions.
             LayerIndexOutOfRange: A hook references a layer outside [0, 42).
         """
-        all_names = set((hooks or {}).keys()) | set(capture or [])
-        self._validate_hook_names(all_names)
+        final_hooks, final_capture = compose(
+            interventions, hooks=hooks, capture=capture,
+        )
+        self._validate_hook_names(set(final_hooks.keys()) | set(final_capture))
         logits, cache = run_forward(
-            self._model, input_ids, hooks=hooks, capture=capture,
+            self._model, input_ids, hooks=final_hooks, capture=final_capture,
         )
         return RunResult(logits=logits, cache=cache)
 

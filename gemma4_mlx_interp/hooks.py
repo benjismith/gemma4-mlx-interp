@@ -78,15 +78,20 @@ def parse_hook_name(name: str) -> HookInfo:
     raise InvalidHookName(name, _arch.all_hook_names())
 
 
-def needs_attn_internals(hook_names: set[str]) -> bool:
-    """Return True iff any of the named hook points targets attention internals.
+def attn_internal_layers(hook_names: set[str]) -> set[int]:
+    """Return the set of layer indices at which the manual attention path
+    must run because some hook or capture targets attention internals there.
 
-    When True, the canonical forward pass must take the slower manual-softmax
-    path that exposes attention weights and per-head outputs. When False, the
-    fused scaled_dot_product_attention kernel is used (typical case).
+    The manual softmax path is mathematically identical to the fused
+    scaled_dot_product_attention kernel but produces slightly different bf16
+    rounding. Switching paths per-layer (rather than globally) keeps the
+    residual stream bitwise-equivalent at all layers where the user hasn't
+    asked for attention internals — matching the existing experiment scripts'
+    behavior of only using manual attention at the layers being inspected.
     """
+    out: set[int] = set()
     for n in hook_names:
         info = parse_hook_name(n)
-        if info.point in _arch.ATTN_INTERNAL_POINTS:
-            return True
-    return False
+        if info.point in _arch.ATTN_INTERNAL_POINTS and info.layer is not None:
+            out.add(info.layer)
+    return out
