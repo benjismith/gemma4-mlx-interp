@@ -8,7 +8,7 @@ Still populates KV caches when ablating attention on non-shared layers,
 so downstream KV-shared layers aren't starved.
 
 Run from project root:
-    python experiments/sublayer_ablation.py
+    python experiments/step_04_sublayer_ablation.py
 """
 
 import sys

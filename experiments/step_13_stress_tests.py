@@ -19,7 +19,7 @@ stress-test group as its own color, so we can see exactly where the
 stress-test prompts land.
 
 Run from project root:
-    python experiments/stress_tests.py
+    python experiments/step_13_stress_tests.py
 """
 
 import sys
@@ -39,7 +39,7 @@ from hooks import run_with_cache  # noqa: E402
 from mlx_vlm.models.gemma4.language import logit_softcap  # noqa: E402
 
 # Anchor prompts (the 12 big-sweep categories, for geometric context)
-from experiments.big_sweep import PROMPTS as ANCHOR_PROMPTS, COLOR_MAP  # noqa: E402
+from experiments.step_12_big_sweep import PROMPTS as ANCHOR_PROMPTS, COLOR_MAP  # noqa: E402
 
 OUT_DIR = ROOT / "caches"
 PROJECT_LAYER = 30

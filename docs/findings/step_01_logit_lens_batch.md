@@ -1,7 +1,7 @@
 # Logit Lens Across 15 Prompts on Gemma 4 E4B
 
 **Date:** 2026-04-15
-**Script:** `experiments/logit_lens_batch.py`
+**Script:** `experiments/step_01_logit_lens_batch.py`
 **Plot:** `caches/logit_lens_batch.png`
 
 ## Setup

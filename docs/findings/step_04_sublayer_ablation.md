@@ -1,7 +1,7 @@
 # Sub-Layer Ablation: Attention vs MLP Across Gemma 4 E4B
 
 **Date:** 2026-04-15
-**Script:** `experiments/sublayer_ablation.py`
+**Script:** `experiments/step_04_sublayer_ablation.py`
 **Plot:** `caches/sublayer_ablation.png`
 
 ## Setup

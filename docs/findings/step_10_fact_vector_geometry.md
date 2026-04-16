@@ -1,7 +1,7 @@
 # Fact Vector Geometry: Semantic Structure in Vocab-Opaque Representations
 
 **Date:** 2026-04-15
-**Script:** `experiments/fact_vector_geometry.py`
+**Script:** `experiments/step_10_fact_vector_geometry.py`
 **Plot:** `caches/fact_vector_geometry.png`
 
 ## Setup

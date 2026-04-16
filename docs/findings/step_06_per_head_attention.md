@@ -1,7 +1,7 @@
 # Per-Head Attention Analysis at Global Layers
 
 **Date:** 2026-04-15
-**Script:** `experiments/per_head_attention.py`
+**Script:** `experiments/step_06_per_head_attention.py`
 **Plots:** `caches/per_head_layer23_eiffel.png`, `caches/head_specialization_heatmap.png`, `caches/layer23_heads_grid.png`
 
 ## Setup

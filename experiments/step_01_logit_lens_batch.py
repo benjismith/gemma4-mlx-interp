@@ -12,7 +12,7 @@ The key hypothesis: the big inflection points in the lens trajectory land on
 or just after the global-attention layers (5, 11, 17, 23, 29, 35, 41).
 
 Run from project root:
-    python experiments/logit_lens_batch.py
+    python experiments/step_01_logit_lens_batch.py
 """
 
 import os

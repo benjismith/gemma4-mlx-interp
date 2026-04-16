@@ -19,7 +19,7 @@ This generalizes word2vec-style geometric analysis of word embeddings to
 mid-depth transformer internal representations.
 
 Run from project root:
-    python experiments/fact_vector_geometry.py
+    python experiments/step_10_fact_vector_geometry.py
 """
 
 import sys

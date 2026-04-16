@@ -49,7 +49,7 @@ Both of the above are writeup-shaped if they yield clean results. Neither has be
 
 ## Code style and conventions
 
-- **Small, composable scripts over frameworks.** `forward.py`, `hooks.py`, `experiments/logit_lens.py`, `experiments/layer_ablation.py`, etc. Not a monorepo with a setup.py.
+- **Small, composable scripts over frameworks.** `forward.py`, `hooks.py`, numbered `experiments/step_NN_*.py` files, etc. Not a monorepo with a setup.py.
 - **Save activation caches to disk** (`.npz` or `.safetensors`) when an experiment runs more than a few seconds of forward passes. Recomputing E4B activations is cheap-ish but not free, and being able to re-analyze without re-running is worth the disk space.
 - **bf16 throughout the cache, float32 only at the analysis boundary.** Cast with `.astype(mx.float32)` right before going to numpy. MLX → numpy conversions on bf16 arrays will crash with a PEP 3118 buffer format error; this is a known footgun.
 - **Prefer reading mlx-vlm's source over guessing at its API.** The package is small, the Gemma 4 model file is a few hundred lines of readable Python, and the upstream docs are sparse. When in doubt, `view` the file.

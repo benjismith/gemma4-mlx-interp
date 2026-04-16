@@ -17,7 +17,7 @@ Core outputs:
   - PCA projection colored by category
 
 Run from project root:
-    python experiments/big_sweep.py
+    python experiments/step_12_big_sweep.py
 """
 
 import sys

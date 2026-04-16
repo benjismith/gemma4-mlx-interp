@@ -1,7 +1,7 @@
 # Big Sweep: Centroid-Decoding Robustly Generalizes Across 12 Categories
 
 **Date:** 2026-04-15
-**Script:** `experiments/big_sweep.py`
+**Script:** `experiments/step_12_big_sweep.py`
 **Plots:** `caches/big_sweep_pca.png`, `caches/big_sweep_similarity_heatmap.png`
 
 ## Setup

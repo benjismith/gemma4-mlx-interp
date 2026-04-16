@@ -8,7 +8,7 @@ Key hypothesis: L29 H7 (the highest subject-entity attention head) is
 disproportionately important for factual recall.
 
 Run from project root:
-    python experiments/single_head_ablation.py
+    python experiments/step_07_single_head_ablation.py
 """
 
 import sys

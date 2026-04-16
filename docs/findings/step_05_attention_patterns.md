@@ -1,7 +1,7 @@
 # Attention Patterns at Global Layers in Gemma 4 E4B
 
 **Date:** 2026-04-15
-**Script:** `experiments/attention_patterns.py`
+**Script:** `experiments/step_05_attention_patterns.py`
 **Plots:** `caches/attn_pattern_*.png`, `caches/attn_layer23_summary.png`
 
 ## Hypothesis

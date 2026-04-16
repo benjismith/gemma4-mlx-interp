@@ -10,7 +10,7 @@ Runs on the same 15-prompt battery as the logit-lens batch experiment.
 42 layers × 15 prompts = 630 forward passes (~2 minutes on M2 Pro).
 
 Run from project root:
-    python experiments/layer_ablation.py
+    python experiments/step_02_layer_ablation.py
 """
 
 import sys

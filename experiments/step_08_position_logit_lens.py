@@ -10,7 +10,7 @@ the final prediction position. This would be evidence that MLPs write
 associative-memory lookups at the subject position.
 
 Run from project root:
-    python experiments/position_logit_lens.py
+    python experiments/step_08_position_logit_lens.py
 """
 
 import sys

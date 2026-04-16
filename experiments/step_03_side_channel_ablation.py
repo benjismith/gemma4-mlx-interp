@@ -9,7 +9,7 @@ Also tests per-layer granularity: ablate the side-channel in one layer at
 a time to see if any specific layers depend on it more than others.
 
 Run from project root:
-    python experiments/side_channel_ablation.py
+    python experiments/step_03_side_channel_ablation.py
 """
 
 import sys

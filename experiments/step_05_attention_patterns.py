@@ -9,7 +9,7 @@ Key hypothesis: layer 23's attention disproportionately attends to subject-
 entity tokens (e.g. "Eiffel Tower" → "Paris").
 
 Run from project root:
-    python experiments/attention_patterns.py
+    python experiments/step_05_attention_patterns.py
 """
 
 import sys

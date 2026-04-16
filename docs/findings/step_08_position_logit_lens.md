@@ -1,7 +1,7 @@
 # Position-Wise Logit Lens: The Answer Only Lives at the Final Position
 
 **Date:** 2026-04-15
-**Script:** `experiments/position_logit_lens.py`
+**Script:** `experiments/step_08_position_logit_lens.py`
 **Plots:** `caches/position_logit_lens_*.png`
 
 ## Hypothesis

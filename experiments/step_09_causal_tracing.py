@@ -11,7 +11,7 @@ causal path for factual information, even when that information isn't
 decodable through the unembed (per finding 08).
 
 Run from project root:
-    python experiments/causal_tracing.py
+    python experiments/step_09_causal_tracing.py
 """
 
 import sys

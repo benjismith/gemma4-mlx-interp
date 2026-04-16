@@ -1,7 +1,7 @@
 # Category Centroids Decode to Multilingual Relational Concepts
 
 **Date:** 2026-04-15
-**Script:** `experiments/centroid_and_arithmetic.py`
+**Script:** `experiments/step_11_centroid_and_arithmetic.py`
 
 ## Setup
 

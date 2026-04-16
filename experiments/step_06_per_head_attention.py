@@ -9,7 +9,7 @@ layer: what fraction of attention from the final position lands on the
 subject-entity tokens vs the chat-template tokens?
 
 Run from project root:
-    python experiments/per_head_attention.py
+    python experiments/step_06_per_head_attention.py
 """
 
 import sys
@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from forward import load_model, _tokenize  # noqa: E402
-from experiments.attention_patterns import run_with_attention_weights, get_token_labels  # noqa: E402
+from experiments.step_05_attention_patterns import run_with_attention_weights, get_token_labels  # noqa: E402
 
 GLOBAL_LAYERS = [5, 11, 17, 23, 29, 35, 41]
 OUT_DIR = ROOT / "caches"

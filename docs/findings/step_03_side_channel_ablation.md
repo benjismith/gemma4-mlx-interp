@@ -1,7 +1,7 @@
 # MatFormer Per-Layer-Input Side-Channel Ablation
 
 **Date:** 2026-04-15
-**Script:** `experiments/side_channel_ablation.py`
+**Script:** `experiments/step_03_side_channel_ablation.py`
 **Plot:** `caches/side_channel_ablation.png`
 
 ## Background

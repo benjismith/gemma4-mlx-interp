@@ -1,7 +1,7 @@
 # Per-Layer Zero-Ablation on Gemma 4 E4B
 
 **Date:** 2026-04-15
-**Script:** `experiments/layer_ablation.py`
+**Script:** `experiments/step_02_layer_ablation.py`
 **Plot:** `caches/layer_ablation.png`
 
 ## Setup

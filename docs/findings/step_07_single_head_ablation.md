@@ -1,7 +1,7 @@
 # Single-Head Ablation: L29 H7 Is Not the Factual Recall Bottleneck
 
 **Date:** 2026-04-15
-**Script:** `experiments/single_head_ablation.py`
+**Script:** `experiments/step_07_single_head_ablation.py`
 **Plot:** `caches/single_head_ablation.png`
 
 ## Hypothesis

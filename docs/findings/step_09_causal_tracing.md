@@ -1,7 +1,7 @@
 # Causal Tracing: Localizing Factual Information in E4B
 
 **Date:** 2026-04-15
-**Script:** `experiments/causal_tracing.py`
+**Script:** `experiments/step_09_causal_tracing.py`
 **Plots:** `caches/causal_trace_*.png`
 
 ## Hypothesis

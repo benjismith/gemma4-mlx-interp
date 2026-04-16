@@ -1,7 +1,7 @@
 # Stress Tests: Template, Cross-Lingual, and Creative Prompts
 
 **Date:** 2026-04-15
-**Script:** `experiments/stress_tests.py`
+**Script:** `experiments/step_13_stress_tests.py`
 **Plot:** `caches/stress_tests.png`
 
 ## Setup

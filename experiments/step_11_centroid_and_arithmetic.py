@@ -21,7 +21,7 @@ vocab-opaque fact vectors. Three experiments:
      category-plus-answer decomposition is linear.
 
 Run from project root:
-    python experiments/centroid_and_arithmetic.py
+    python experiments/step_11_centroid_and_arithmetic.py
 """
 
 import sys
@@ -38,7 +38,7 @@ if str(ROOT) not in sys.path:
 from forward import load_model, _tokenize  # noqa: E402
 from hooks import run_with_cache  # noqa: E402
 from mlx_vlm.models.gemma4.language import logit_softcap  # noqa: E402
-from experiments.fact_vector_geometry import (  # noqa: E402
+from experiments.step_10_fact_vector_geometry import (  # noqa: E402
     PROMPTS, CATEGORIES, find_subject_position
 )
 
