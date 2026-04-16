@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "gemma4_mlx_interp",
+  "project_id": "0aef27ad-410c-4e95-930c-31b81684ae60"
+}
