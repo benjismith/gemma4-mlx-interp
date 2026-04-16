@@ -17,64 +17,114 @@ Mechanistic interpretability experiments on Google's Gemma 4 models, running loc
 - **MatFormer per-layer embedding side-channel**: every decoder block has `per_layer_input_gate` and `per_layer_projection` modules, and the top-level model has a giant `embed_tokens_per_layer(262144, 10752)` table. This is a real side-input into every block beyond the residual stream, computed via `get_per_layer_inputs(input_ids)` in `mlx_vlm/models/gemma4/gemma4.py`. **It's load-bearing**: calling the language model without populating this path produces coherent-shaped garbage, not NaNs. The hook harness must route through whatever entry point computes per-layer inputs correctly.
 - **`v_norm` is `RMSNormNoScale`** on every attention module — unusual normalization choice, may or may not matter for interp, flag if it comes up.
 
-## Known open bug (unblock this first)
+## Project status
 
-As of the state of this project's creation: calling `model(input_ids)` or `model.language_model(input_ids)` directly on the loaded E4B model produces garbage output (top token `'**'` at p=0.31 for "The Eiffel Tower is in", regardless of chat templating or bare input). **However, `mlx_vlm.generate(model, processor, prompt, ...)` produces correct output ("Paris") on the same model object in the same process.** So the weights load correctly and the forward path works *when called through `generate`*; something in the direct-call path is missing a setup step that `generate` performs.
+**Foundational work is done.** The forward-path bug noted in earlier versions of this file (`model(input_ids)` returning garbage) is resolved — see "The framework" section below; `Model.run` is the working forward path, packaged for hook-based interp.
 
-The MatFormer per-layer-input machinery is NOT the culprit — a config probe confirmed `hidden_size_per_layer_input=256` is set and `get_per_layer_inputs` exists, and `Model.__call__` in `gemma4.py` routes through `get_input_embeddings` which computes per-layer inputs correctly. The bug is something else: possibly a cache object that `generate` initializes that the layer code reads as non-optional state, possibly processor-side input preparation, possibly something in `language.py`'s `LanguageModel.__call__` signature mismatch.
+**Findings landed** in `docs/findings/step_NN_*.md`:
 
-**First task in any new session on this project**: read `mlx_vlm/generate.py`, `mlx_vlm/utils.py`, and `mlx_vlm/models/gemma4/{gemma4,language}.py` in order. Trace a single forward pass through `mlx_vlm.generate` and identify exactly what `generate` feeds into the model that a direct `model(x)` call doesn't. Then write a minimal reproduction of the working forward path that we control end-to-end. Don't write hooks until the basic forward path is understood and reproducible.
+1. Logit lens phase transition (sharp crash from rank ~100k+ to 0 in layers 27–36)
+2. Layer-ablation: layers 10–24 are the "invisible middle" — most causally important, least visible to the lens
+3. **MatFormer side-channel ablation: load-bearing, concentrated at global layers** — the headline finding
+4. Sub-layer ablation: MLPs dominate; only L23 is attention-critical
+5. Attention patterns: globals attend to chat-template structure, not content
+6. Per-head: L29 H7 has highest subject-attention; M07 then showed it's still expendable
+7. Single-head ablation: no single head is a bottleneck
+8. Position-wise lens: answer never decodable at the subject position
+9. Causal tracing: two clean hotspots (subject pos early, final pos late)
+10–13. Fact-vector geometry, centroid decoding, big sweep, stress tests — culminating in the centroid-decoding technique
 
-## Project goals
-
-**Short-term** (get this working):
-
-1. Resolve the forward-path bug above. Produce a minimal `forward.py` that runs a prompt through E4B and returns logits, matching what `mlx_vlm.generate` produces.
-2. Build a TransformerLens-style hook harness (`hooks.py`) that caches, per layer: `resid_pre`, `attn_out`, `mlp_out`, `resid_post`, and the `per_layer_input_gate` output. Cache should stay in bf16 and only cast to float32 at analysis time.
-3. Implement a logit lens as the first experiment — project every layer's `resid_post` through the tied unembed and visualize the trajectory of a target token's rank/probability across depth. Classic sanity check; if it looks nothing like published logit lens results on other models, something is still wrong with the harness.
-
-**Medium-term** (things actually worth looking at):
-
-- **Global vs. local layer specialization.** Do the 7 global-attention layers (5, 11, 17, 23, 29, 35, 41) do qualitatively different computational work from the 35 local-attention layers? Candidate probes: compare attention-pattern entropy, zero-ablate each layer individually and measure loss impact on a corpus of prompts, logit-lens the residual stream *into* and *out of* each global layer specifically.
-- **Is the per-layer-input side-channel doing real work?** Ablate `per_layer_input_gate` (set the gate output to zero in every block) and measure degradation on a held-out corpus. If degradation is small, the MatFormer side-channel may be closer to vestigial than Google's paper suggests. If it's large, the next question is *what kind of information* flows through it — is it per-token content, positional, or something else?
-
-Both of the above are writeup-shaped if they yield clean results. Neither has been done publicly as of the project's creation, as far as we know.
+**Next direction** is in `docs/proposals/factorization-experiments.md`: deflate the "multilingual cognition" framing as an embedding-space artifact, test the surviving operation-factorization claim with (a) operation-word disambiguation prompts and (b) representation-injection (steering) experiments.
 
 **Out of scope for now**:
 
 - The 26B-A4B MoE variant (interesting but MoE adds complications we don't need yet).
 - The 31B dense model (won't fit on this hardware at bf16).
 - Vision or audio encoder interp — text-only.
-- Writing a general-purpose interp library. This is a scrappy project harness, not `TransformerLens-MLX`. Keep the abstraction surface thin and the code honest.
+- Multi-architecture support in the framework. The package is Gemma-4-E4B-specific by design; if/when we have a second model worth probing, we generalize. Until then, keeping the constants hard-coded keeps the code honest.
+
+## The framework: `gemma4_mlx_interp/`
+
+The package at `gemma4_mlx_interp/` is the canonical interface to the model. **Every experiment script imports from it; nothing in the project should call `model.language_model(input_ids)` directly anymore.** It was extracted from the prototype `forward.py` + `hooks.py` modules during the migration epic (closed: `qbf` + 17 children).
+
+Layered design:
+
+- **L0** — `Model.load()`, `Model.run(input_ids, hooks={}, capture=[])`, `ActivationCache`. The hook-aware forward pass with 294 named hook points (`blocks.{i}.resid_pre/mid/post/attn_out/mlp_out/gate_out/attn.weights/attn.per_head_out`). TransformerLens-style callback contract.
+- **L1** — `Ablate` / `Capture` / `Patch` declarative interventions on top of L0. Pass a list as `interventions=[...]` to `Model.run`. Multiple interventions on the same hook point chain in declaration order.
+- **L2** — `Prompt` / `PromptSet` / `validate`, the canonical prompt sets (`FACTUAL_15`, `BIG_SWEEP_96`, `STRESS_TEMPLATE_VAR/CROSS_LINGUAL/CREATIVE`), `logit_lens_final` / `logit_lens_per_position`, `fact_vectors` / `fact_vectors_at`, `centroid_decode`, plus `cosine_matrix` / `cluster_purity` / `silhouette_cosine` / `nearest_neighbor_purity` / `intra_inter_separation`.
+- **L3** — `bar_by_layer`, `lens_trajectory`, `logprob_trajectory`, `position_heatmap`, `pca_scatter`, `similarity_heatmap`. Optional layer; every plot can still be hand-rolled.
+
+Quickstart:
+
+```python
+from gemma4_mlx_interp import Model, Ablate, Capture
+
+model = Model.load()
+ids = model.tokenize("Complete this sentence with one word: The Eiffel Tower is in")
+
+result = model.run(ids)                                    # bare run
+result = model.run(ids, interventions=[Ablate.layer(14)])  # ablation
+result = model.run(ids, interventions=[                    # capture + ablation
+    Ablate.head(29, head=7),
+    Capture.attn_weights(layers=[23, 29]),
+])
+```
+
+See `gemma4_mlx_interp/README.md` for the full API tour and worked examples.
+
+Smoke tests live next to the package: `python -m gemma4_mlx_interp._smoke` (L0 semantic check), `_smoke_l1` (composition), `_smoke_l2` (reproduces published findings 01/11/12 numbers), `_smoke_l3` (plot helpers vs synthetic data).
 
 ## Code style and conventions
 
-- **Small, composable scripts over frameworks.** `forward.py`, `hooks.py`, numbered `experiments/step_NN_*.py` files, etc. Not a monorepo with a setup.py.
 - **Save activation caches to disk** (`.npz` or `.safetensors`) when an experiment runs more than a few seconds of forward passes. Recomputing E4B activations is cheap-ish but not free, and being able to re-analyze without re-running is worth the disk space.
-- **bf16 throughout the cache, float32 only at the analysis boundary.** Cast with `.astype(mx.float32)` right before going to numpy. MLX → numpy conversions on bf16 arrays will crash with a PEP 3118 buffer format error; this is a known footgun.
-- **Prefer reading mlx-vlm's source over guessing at its API.** The package is small, the Gemma 4 model file is a few hundred lines of readable Python, and the upstream docs are sparse. When in doubt, `view` the file.
-- **`mx.eval()` before reading values.** MLX is lazy; caching `x` in a dict without calling `mx.eval()` stores a graph node, not a value. The harness should eval the full cache after each forward pass, not on every individual insertion.
+- **bf16 throughout the cache, float32 only at the analysis boundary.** Cast with `.astype(mx.float32)` right before going to numpy — or use `cache.to_float32()`. MLX → numpy conversions on bf16 arrays will crash with a PEP 3118 buffer format error; this is a known footgun.
+- **Prefer reading mlx-vlm's source over guessing at its API.** The package is small, the Gemma 4 model file is a few hundred lines of readable Python, and the upstream docs are sparse. When in doubt, view the file.
+- **`mx.eval()` before reading values.** MLX is lazy. The framework's `Model.run` evals the cache + logits in a single batch before returning, so users typically don't need to think about this — but if you build your own forward path, remember it.
 - **No `localStorage`, no browser APIs, no web frontends** — this is a CLI/notebook project. Any visualization is matplotlib, Plotly, or (at most) writing an HTML artifact opened manually.
 
 ## Debugging principle
 
 When something isn't working, **read the source of whatever is working first before theorizing.** If there's a working path and a broken path, diff them at the source level rather than guessing at causes.
 
-## Files and directories (as they develop)
+## Files and directories
 
 ```
 gemma4-mlx-interp/
-├── .venv/              # Python 3.11 venv (don't commit)
-├── CLAUDE.md           # This file
-├── README.md           # Human-facing project description (write after first results)
-├── forward.py          # Minimal working forward pass, used by everything else
-├── hooks.py            # Activation cache + hook harness
-├── experiments/
-│   ├── logit_lens.py
-│   ├── layer_ablation.py
-│   └── ...
-├── caches/             # Saved activation caches (gitignore)
-└── notes/              # Scratch observations, half-baked hypotheses, TODOs
+├── .venv/                     # Python 3.11 venv (don't commit)
+├── CLAUDE.md                  # This file
+├── benchmark.py               # Latency benchmarks for Model.run + capture configs
+├── gemma4_mlx_interp/         # The framework (L0-L3)
+│   ├── __init__.py            # Public API re-exports
+│   ├── _arch.py               # E4B architectural constants + hook registry
+│   ├── _forward.py            # Canonical hook-aware forward pass (THE forward)
+│   ├── model.py               # Model.load / Model.run / RunResult
+│   ├── cache.py               # ActivationCache
+│   ├── hooks.py               # HookInfo + name parser
+│   ├── interventions.py       # Ablate / Capture / Patch / compose
+│   ├── lens.py                # logit_lens_final / logit_lens_per_position
+│   ├── geometry.py            # fact_vectors / centroid_decode / stats
+│   ├── plot.py                # bar_by_layer / lens_trajectory / heatmaps / pca
+│   ├── prompts/               # Prompt + PromptSet + canonical sets
+│   │   ├── _core.py
+│   │   ├── factual.py         # FACTUAL_15
+│   │   ├── big_sweep.py       # BIG_SWEEP_96 (12 categories)
+│   │   └── stress.py          # STRESS_TEMPLATE_VAR / CROSS_LINGUAL / CREATIVE
+│   ├── errors.py              # InvalidHookName / CacheKeyError / etc.
+│   ├── _smoke.py              # L0 semantic smoke test
+│   ├── _smoke_l1.py           # Composition smoke test
+│   ├── _smoke_l2.py           # Reproduces findings 01/11/12 numbers
+│   ├── _smoke_l3.py           # Plot helpers vs synthetic data
+│   └── README.md              # User-facing framework docs
+├── experiments/               # Numbered scripts using the framework
+│   ├── step_01_logit_lens_batch.py
+│   ├── step_02_layer_ablation.py
+│   └── ...                    # through step_13_stress_tests.py
+├── docs/
+│   ├── findings/              # step_NN_*.md write-ups (one per experiment)
+│   ├── essays/                # Long-form narratives
+│   └── proposals/             # Next-direction experiment designs
+├── caches/                    # Saved activation caches + plots (gitignored)
+└── notes/                     # Scratch observations (gitignored)
 ```
 
 ## Useful commands
@@ -83,20 +133,15 @@ gemma4-mlx-interp/
 # Activate the venv every session
 source .venv/bin/activate
 
-# Sanity-check that mlx and the model load
-python -c "from mlx_vlm import load; m, p = load('mlx-community/gemma-4-E4B-it-bf16'); print('ok')"
+# Sanity-check the framework loads + answers a basic prompt
+python -m gemma4_mlx_interp._smoke
 
-# Find mlx-vlm source for reading
+# Reproduce any experiment's published findings
+python experiments/step_02_layer_ablation.py
+python experiments/step_12_big_sweep.py
+
+# Find mlx-vlm source for reading (still useful when something surprises you)
 python -c "import mlx_vlm, os; print(os.path.dirname(mlx_vlm.__file__))"
-
-# Run a known-working generation as ground truth for any forward-path work
-python -c "
-from mlx_vlm import load, generate
-m, p = load('mlx-community/gemma-4-E4B-it-bf16')
-print(generate(model=m, processor=p,
-               prompt='Complete this sentence with one word: The Eiffel Tower is in',
-               max_tokens=5, temperature=0.0).text)
-"
 ```
 
 
