@@ -10,11 +10,11 @@ hand-rolled forwards disappear from the codebase. Tests are dropped from
 this file as their references vanish; eventually this file's job is done
 and it can be removed entirely.
 
-Currently active checks (Ablate.layer dropped at M02; Ablate.head at M07;
-Ablate.side_channel at M03; Ablate.attention/.mlp at M04):
-  1. Capture.attn_weights([23])   vs step_05.run_with_attention_weights
-  2. Patch.position(10, 13, ...)  vs step_09.forward_with_patch
-  3. Composition: Ablate.head + Capture.per_head_out at the same layer
+Currently active checks (Ablate.layer at M02; Ablate.head at M07;
+Ablate.side_channel at M03; Ablate.attention/.mlp at M04;
+Capture.attn_weights at M06):
+  1. Patch.position(10, 13, ...)  vs step_09.forward_with_patch
+  2. Composition: Ablate.head + Capture.per_head_out at the same layer
      -> captured tensor's ablated head slice is all zeros
 
 Run from project root with the venv active:
@@ -35,7 +35,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 # Reference paths from the still-unported experiments.
-from experiments.step_05_attention_patterns import run_with_attention_weights  # noqa: E402
 from experiments.step_09_causal_tracing import forward_with_patch  # noqa: E402
 from hooks import run_with_cache  # noqa: E402
 
@@ -73,18 +72,6 @@ def main() -> int:
     ids_corrupt = model.tokenize(PROMPT_CORRUPT)
 
     all_pass = True
-
-    # ---- 6. Capture.attn_weights([23]) -> shape + numerical equivalence ----
-    _, ref_attn = run_with_attention_weights(model._model, ids, target_layers=[23])
-    ref_w = np.array(ref_attn[23].astype(mx.float32))
-    result = model.run(ids, interventions=[Capture.attn_weights([23])])
-    run_w = np.array(result.cache["blocks.23.attn.weights"].astype(mx.float32))
-    delta_w = float(np.max(np.abs(ref_w - run_w)))
-    shape_match = ref_w.shape == run_w.shape
-    ok_w = shape_match and delta_w < TOLERANCE
-    print(f"  [{'OK' if ok_w else 'FAIL':>4}] Capture.attn_weights([23])"
-          f"{'':<32s}  shape={run_w.shape}  max|Δ|={delta_w:.6e}")
-    all_pass &= ok_w
 
     # ---- 7. Patch.position(layer=10, pos=13) for causal tracing ----
     # Build clean cache via L1 Capture, then patch into corrupt run.
