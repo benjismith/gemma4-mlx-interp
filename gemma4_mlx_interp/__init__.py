@@ -74,6 +74,16 @@ from .geometry import (
     vocab_concentration,
 )
 from .generate import generate_labeled_corpus, generate_text
+from .head_weights import (
+    CircuitAnalysis,
+    CircuitComponent,
+    HeadSpec,
+    get_head_spec,
+    head_key_tokens,
+    head_read_tokens,
+    ov_circuit,
+    qk_circuit,
+)
 from .probes import Probe
 from .hooks import HookFn, HookInfo, parse_hook_name
 from .interventions import Ablate, Capture, Intervention, Patch, compose
@@ -133,6 +143,15 @@ __all__ = [
     # Generation (for corpus-building workflows)
     "generate_text",
     "generate_labeled_corpus",
+    # Head-weight analysis (static interp on W_Q/W_K/W_V/W_O)
+    "HeadSpec",
+    "CircuitComponent",
+    "CircuitAnalysis",
+    "get_head_spec",
+    "head_read_tokens",
+    "head_key_tokens",
+    "qk_circuit",
+    "ov_circuit",
     # Vocabulary-space concentration
     "VocabConcentration",
     "vocab_concentration",
