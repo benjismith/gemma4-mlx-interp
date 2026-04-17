@@ -46,10 +46,12 @@ Caveats:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Iterable, Optional
 
 import mlx.core as mx
 import numpy as np
+
+from .interventions import Capture
 
 
 @dataclass(frozen=True)
@@ -293,6 +295,126 @@ def qk_circuit(
         circuit_type="QK", layer=layer, head=head,
         kv_group=spec.kv_group, components=components,
     )
+
+
+# ---------------------------------------------------------------------------
+# Activation-level OV trajectories
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PositionWrite:
+    """Top tokens written by a head at one query position in one forward pass."""
+
+    position: int
+    query_token: str              # decoded token at this query position
+    top_tokens: list[tuple[str, float]]  # (token, raw logit) pairs
+
+
+def head_ov_position_writes(
+    model, input_ids: mx.array, layer: int, head: int,
+    *, k: int = 10, embed: Optional[np.ndarray] = None,
+) -> list[PositionWrite]:
+    """For each position p in the prompt, return the top-k tokens this head
+    would write into the residual IF it attended fully to position p.
+
+    This is the 'potential' read-out: what the head's OV circuit produces
+    when pointed at each position's value vector. Independent of the actual
+    attention pattern.
+
+    Computation per position p:
+      1. Capture attn.v — shape [1, n_kv_heads, L, head_dim].
+      2. v_p = V[0, kv_group(head), p, :]  (the value this head's KV-group
+         would emit from position p).
+      3. Apply W_O[:, h_slice]: residual_delta = W_O_slice @ v_p  [d_model].
+      4. Project through the tied embedding: logits = embed @ residual_delta.
+      5. Take top-k tokens.
+
+    Args:
+        model, input_ids: as Model.run.
+        layer, head: the Q-head to analyze. Pairs with kv_group = head // 4.
+        k: number of top tokens to return per position.
+        embed: optional cached embedding matrix; computed if None.
+
+    Returns:
+        list of PositionWrite, one per input position.
+    """
+    spec = get_head_spec(model, layer, head)
+    if embed is None:
+        embed = _embed_matrix_f32(model)
+
+    result = model.run(input_ids, interventions=[Capture.values(layer)])
+    V = np.array(result.cache[f"blocks.{layer}.attn.v"].astype(mx.float32))
+    # V shape: [1, n_kv_heads, L, head_dim]. Pick our KV-group slice.
+    V_group = V[0, spec.kv_group]  # [L, head_dim]
+
+    # W_O[h_slice]: [d_model, head_dim]. residual_delta[p] = W_O @ V_group[p].
+    writes = V_group @ spec.W_O.T  # [L, d_model]
+    logits = writes @ embed.T       # [L, vocab]
+
+    L = V_group.shape[0]
+    out: list[PositionWrite] = []
+    for p in range(L):
+        top_idx = np.argsort(-logits[p])[:k]
+        token_list = [
+            (model.tokenizer.decode([int(i)]), float(logits[p, int(i)]))
+            for i in top_idx
+        ]
+        query_tok = model.tokenizer.decode([int(input_ids[0, p])])
+        out.append(PositionWrite(
+            position=p, query_token=query_tok, top_tokens=token_list,
+        ))
+    return out
+
+
+def head_ov_actual_writes(
+    model, input_ids: mx.array, layer: int, head: int,
+    *, k: int = 10, embed: Optional[np.ndarray] = None,
+) -> list[PositionWrite]:
+    """For each QUERY position q, return the top-k tokens this head actually
+    writes into the residual at q during this forward pass (weighted by its
+    attention pattern).
+
+    Differs from head_ov_position_writes: uses the post-attention-weighting
+    per_head_out tensor (the weighted sum softmax(QK) @ V) instead of raw V.
+    This is the 'actual' token contribution at each query position, not the
+    'potential' contribution if the head attended to each position fully.
+
+    Computation per query position q:
+      1. Capture attn.per_head_out — shape [1, n_heads, L, head_dim].
+      2. ph_q = per_head_out[0, head, q, :]  (what this head emits at q).
+      3. residual_delta = W_O[h_slice] @ ph_q  [d_model].
+      4. logits = embed @ residual_delta; top-k tokens.
+
+    The sum of these per-query deltas across all heads (plus other branches)
+    equals the head's total contribution to the residual stream at each
+    query position.
+    """
+    spec = get_head_spec(model, layer, head)
+    if embed is None:
+        embed = _embed_matrix_f32(model)
+
+    result = model.run(input_ids, interventions=[Capture.per_head_out(layer)])
+    PH = np.array(result.cache[f"blocks.{layer}.attn.per_head_out"].astype(mx.float32))
+    # PH shape: [1, n_heads, L, head_dim]. Pick this head.
+    PH_h = PH[0, head]  # [L, head_dim]
+
+    writes = PH_h @ spec.W_O.T  # [L, d_model]
+    logits = writes @ embed.T    # [L, vocab]
+
+    L = PH_h.shape[0]
+    out: list[PositionWrite] = []
+    for q in range(L):
+        top_idx = np.argsort(-logits[q])[:k]
+        token_list = [
+            (model.tokenizer.decode([int(i)]), float(logits[q, int(i)]))
+            for i in top_idx
+        ]
+        query_tok = model.tokenizer.decode([int(input_ids[0, q])])
+        out.append(PositionWrite(
+            position=q, query_token=query_tok, top_tokens=token_list,
+        ))
+    return out
 
 
 def ov_circuit(
