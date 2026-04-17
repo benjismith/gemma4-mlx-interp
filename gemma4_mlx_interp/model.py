@@ -50,14 +50,35 @@ class RunResult:
         Returns a list of (decoded_token_string, probability) tuples sorted
         by descending probability.
         """
-        last = self.last_logits.astype(mx.float32)
-        probs = mx.softmax(last)
-        mx.eval(probs)
-        probs_np = np.array(probs)
+        probs_np = self.last_probs()
         top_idx = np.argsort(-probs_np)[:k]
         return [
             (tokenizer.decode([int(i)]), float(probs_np[i])) for i in top_idx
         ]
+
+    def top1(self, tokenizer) -> tuple[int, str, float]:
+        """Argmax of last_logits at the final position. Returns
+        (token_id, decoded_token_string, probability).
+
+        Use when you need both the token id (for indexing into other
+        structures) and the human-readable decoded form. For a printable
+        list of top-k predictions, use top_k instead.
+        """
+        probs = self.last_probs()
+        top_id = int(np.argmax(probs))
+        return top_id, tokenizer.decode([top_id]), float(probs[top_id])
+
+    def last_probs(self) -> np.ndarray:
+        """Softmax of last_logits at the final sequence position. Returns a
+        numpy float32 vocabulary-sized probability distribution.
+
+        Composes with vocab_concentration to ask 'how concentrated is the
+        model's next-token distribution after this run?'.
+        """
+        last = self.last_logits.astype(mx.float32)
+        probs = mx.softmax(last)
+        mx.eval(probs)
+        return np.array(probs)
 
 
 class Model:

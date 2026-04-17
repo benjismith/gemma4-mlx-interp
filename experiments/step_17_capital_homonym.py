@@ -30,7 +30,8 @@ if str(ROOT) not in sys.path:
 from gemma4_mlx_interp import (  # noqa: E402
     GLOBAL_LAYERS, Model, N_LAYERS,
     centroid_decode, cluster_purity, cosine_matrix, fact_vectors_at,
-    intra_inter_separation, nearest_neighbor_purity, silhouette_cosine,
+    intra_inter_separation, iterate_clusters, nearest_neighbor_purity,
+    silhouette_cosine,
 )
 from experiments.prompts import HOMONYM_CAPITAL_ALL  # noqa: E402
 
@@ -50,8 +51,8 @@ def main():
     n = len(valid)
     print(f"  {n} of {len(HOMONYM_CAPITAL_ALL)} validated.\n")
 
-    labels = np.array([vp.prompt.category for vp in valid])
-    senses = list(dict.fromkeys(labels.tolist()))  # preserve order
+    labels = valid.labels
+    senses = valid.categories
     print(f"Senses present: {senses}")
     print(f"Counts: {dict((s, int(np.sum(labels == s))) for s in senses)}")
 
@@ -143,8 +144,7 @@ def main():
     for ax, L in zip(axes, PCA_LAYERS):
         vecs = vecs_by_layer[L]
         proj = PCA(n_components=2, random_state=42).fit_transform(vecs)
-        for sense in senses:
-            mask = labels == sense
+        for sense, _, mask in iterate_clusters(proj, labels):
             ax.scatter(proj[mask, 0], proj[mask, 1],
                        c=sense_colors[sense],
                        label=sense_short[sense],
@@ -177,10 +177,9 @@ def main():
         print(f"{'=' * 70}\n")
         vecs_L = vecs_by_layer[L]
         overall_mean = vecs_L.mean(axis=0)
-        for sense in senses:
-            mask = labels == sense
+        for sense, sense_vecs, _ in iterate_clusters(vecs_L, labels):
             top = centroid_decode(
-                model, vecs_L[mask], k=8, mean_subtract=True,
+                model, sense_vecs, k=8, mean_subtract=True,
                 overall_mean=overall_mean,
             )
             print(f"  [{sense_short[sense]:>10s}] " +

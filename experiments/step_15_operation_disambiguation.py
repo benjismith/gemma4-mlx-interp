@@ -30,7 +30,8 @@ if str(ROOT) not in sys.path:
 
 from gemma4_mlx_interp import (  # noqa: E402
     Model, cluster_purity, cosine_matrix, fact_vectors_at,
-    intra_inter_separation, nearest_neighbor_purity, silhouette_cosine,
+    intra_inter_separation, iterate_clusters,
+    nearest_neighbor_purity, silhouette_cosine,
 )
 from experiments.prompts import DISAMBIG_ALL  # noqa: E402
 
@@ -51,7 +52,7 @@ def main():
     print(f"\n{n} of {len(DISAMBIG_ALL)} validated.\n")
 
     # 4-way category labels (the 'cell' label)
-    cell_labels = np.array([vp.prompt.category for vp in valid])
+    cell_labels = valid.labels
 
     # Two binary candidate labelings
     op_labels = np.array(
@@ -125,8 +126,7 @@ def main():
     # Panel 1: colored by operation-type
     ax = axes[0]
     op_colors = {"lookup": "#1f77b4", "counting": "#d62728"}
-    for op in ("lookup", "counting"):
-        mask = op_labels == op
+    for op, _, mask in iterate_clusters(proj, op_labels):
         ax.scatter(proj[mask, 0], proj[mask, 1],
                    c=op_colors[op], label=f"{op} (n={int(mask.sum())})",
                    s=80, alpha=0.85, edgecolors="black", linewidths=0.5)
@@ -141,8 +141,7 @@ def main():
     # Panel 2: colored by word-presence
     ax = axes[1]
     word_colors = {"capital_present": "#2ca02c", "capital_absent": "#9467bd"}
-    for wp in ("capital_present", "capital_absent"):
-        mask = word_labels == wp
+    for wp, _, mask in iterate_clusters(proj, word_labels):
         ax.scatter(proj[mask, 0], proj[mask, 1],
                    c=word_colors[wp], label=f"{wp} (n={int(mask.sum())})",
                    s=80, alpha=0.85, edgecolors="black", linewidths=0.5)
@@ -178,8 +177,7 @@ def main():
         "B1_counting_capital_present": "B1: counting + capital",
         "B2_counting_capital_absent":  "B2: counting, no capital",
     }
-    for c in cell_short:
-        mask = cell_labels == c
+    for c, _, mask in iterate_clusters(proj, cell_labels):
         ax.scatter(proj[mask, 0], proj[mask, 1],
                    c=cell_colors[c], label=cell_short[c],
                    s=100, alpha=0.85, edgecolors="black", linewidths=0.5)

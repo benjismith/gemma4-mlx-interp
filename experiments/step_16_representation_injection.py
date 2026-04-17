@@ -72,14 +72,6 @@ def _capital_token_ids(model) -> set[int]:
     return ids
 
 
-def _final_position_probs(model, ids: mx.array, interventions: list) -> np.ndarray:
-    result = model.run(ids, interventions=interventions or None)
-    last = result.last_logits.astype(mx.float32)
-    probs = mx.softmax(last)
-    mx.eval(probs)
-    return np.array(probs)
-
-
 def main():
     OUT_DIR.mkdir(exist_ok=True)
     print("Loading model...")
@@ -148,7 +140,7 @@ def main():
                     interventions = [Patch.add(
                         layer=LAYER, position=final_pos, value=vec, alpha=alpha,
                     )]
-                probs = _final_position_probs(model, ids, interventions)
+                probs = model.run(ids, interventions=interventions or None).last_probs()
                 top1 = int(np.argmax(probs))
                 top1_tok = model.tokenizer.decode([top1])
                 top1_prob = float(probs[top1])

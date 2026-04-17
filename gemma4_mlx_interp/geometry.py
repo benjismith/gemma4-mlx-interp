@@ -16,7 +16,7 @@ Three layers of functionality:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Any, Iterable, Iterator, Optional
 
 import mlx.core as mx
 import numpy as np
@@ -276,6 +276,30 @@ def nearest_neighbor_purity(
     nn_idx = np.argmax(sim, axis=1)
     hits = labels_arr[nn_idx] == labels_arr
     return float(hits.mean()), hits
+
+
+def iterate_clusters(
+    vectors: np.ndarray,
+    labels,
+) -> Iterator[tuple[Any, np.ndarray, np.ndarray]]:
+    """Yield (label, cluster_vectors, mask) for each unique label in `labels`,
+    in first-seen order.
+
+    Replaces the boilerplate:
+
+        for label in dict.fromkeys(labels.tolist()):
+            mask = labels == label
+            cluster_vecs = vectors[mask]
+            ...
+
+    The mask is yielded alongside cluster_vectors because callers commonly
+    need it for indexing into a parallel array (e.g., a PCA projection of
+    the same vectors, where you want proj[mask] rather than vectors[mask]).
+    """
+    labels_arr = np.asarray(labels)
+    for label in dict.fromkeys(labels_arr.tolist()):
+        mask = labels_arr == label
+        yield label, vectors[mask], mask
 
 
 def cohesion(vectors: np.ndarray) -> float:

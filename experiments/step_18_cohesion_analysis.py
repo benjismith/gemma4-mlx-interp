@@ -40,7 +40,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from gemma4_mlx_interp import (  # noqa: E402
-    Model, cohesion, fact_vectors_at, vocab_concentration,
+    Model, cohesion, fact_vectors_at, iterate_clusters, vocab_concentration,
 )
 from experiments.prompts import BIG_SWEEP_96, HOMONYM_CAPITAL_ALL  # noqa: E402
 
@@ -60,15 +60,13 @@ def analyze_corpus(model, name: str, prompt_set, layers: list[int]) -> list[dict
 
     print(f"  Extracting residuals at layers {layers}...")
     vecs_by_layer = fact_vectors_at(model, valid, layers=layers)
-    labels = np.array([vp.prompt.category for vp in valid])
+    labels = valid.labels
 
     records = []
     for L in layers:
         vecs = vecs_by_layer[L]
         overall_mean = vecs.mean(axis=0)
-        for cat in dict.fromkeys(labels.tolist()):
-            mask = labels == cat
-            cluster_vecs = vecs[mask]
+        for cat, cluster_vecs, mask in iterate_clusters(vecs, labels):
             coh = cohesion(cluster_vecs)
             # Mean-subtracted centroid (corpus-wide mean)
             centroid_sub = (cluster_vecs.mean(axis=0) - overall_mean).astype(np.float32)

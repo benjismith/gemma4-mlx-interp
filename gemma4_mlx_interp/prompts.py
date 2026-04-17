@@ -187,11 +187,22 @@ class ValidatedPromptSet:
 
     @property
     def categories(self) -> list[str]:
+        """Distinct category values present, in first-seen order. Excludes None.
+        For a per-prompt array (potentially with Nones), use .labels instead."""
         return list(
             dict.fromkeys(
                 vp.prompt.category for vp in self.items if vp.prompt.category is not None
             )
         )
+
+    @property
+    def labels(self) -> np.ndarray:
+        """One-per-prompt array of each prompt's .category, in iteration order.
+
+        May contain None entries if some prompts didn't specify a category.
+        Composes directly with iterate_clusters and the geometry stats helpers.
+        """
+        return np.array([vp.prompt.category for vp in self.items])
 
     def by_category(self, category: str) -> "ValidatedPromptSet":
         kept = tuple(vp for vp in self.items if vp.prompt.category == category)
