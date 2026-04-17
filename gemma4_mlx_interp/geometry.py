@@ -149,6 +149,77 @@ def fact_vectors_at(
     return out
 
 
+def fact_vectors_at_hook(
+    model,
+    validated,
+    hook_point: str,
+    *,
+    head: Optional[int] = None,
+    position: str = "subject",
+    interventions: Iterable = (),
+) -> np.ndarray:
+    """Generic-hook-point analogue of fact_vectors_at.
+
+    Captures the activation at `hook_point` and returns one vector per
+    prompt at the chosen position. Works for:
+
+      - residual-stream hooks ('blocks.N.resid_pre', 'blocks.N.resid_post'):
+        head must be None; returned vectors are d_model long.
+      - per-head hooks ('blocks.N.attn.q', '.per_head_out'):
+        head must be a Q-head index 0..7; returned vectors are head_dim long.
+      - per-KV-head hooks ('blocks.N.attn.k', 'blocks.N.attn.v'):
+        head must be a KV-head index 0..1; returned vectors are head_dim long.
+      - MLP / gate hooks ('blocks.N.mlp_out', 'blocks.N.gate_out'):
+        head must be None; d_model long.
+
+    Args:
+        model: Model instance.
+        validated: ValidatedPromptSet.
+        hook_point: the fully-qualified hook name to capture.
+        head: index along the per-head axis of the captured tensor (required
+            for per-head hooks; ignored for residual/MLP/gate hooks).
+        position: 'subject' or 'final'.
+        interventions: optional additional interventions to compose.
+
+    Returns:
+        np.ndarray of shape [n_prompts, d] where d depends on the hook.
+    """
+    from .interventions import _Captures
+
+    n = len(validated)
+    cap = _Captures(names=(hook_point,))
+    extra = list(interventions)
+    out: Optional[np.ndarray] = None
+    for j, vp in enumerate(validated):
+        result = model.run(vp.input_ids, interventions=[cap, *extra])
+        tensor = result.cache[hook_point].astype(mx.float32)
+        pos = _resolve_position(model, vp, position)
+        # Decide how to slice based on tensor shape:
+        #   [1, L, d]                -> residual / MLP-style. vec = tensor[0, pos, :]
+        #   [1, n_heads, L, head_dim] -> per-head. head required.
+        shape = tensor.shape
+        if len(shape) == 3:
+            v = tensor[0, pos, :]
+        elif len(shape) == 4:
+            if head is None:
+                raise ValueError(
+                    f"hook_point {hook_point!r} produces per-head tensor "
+                    f"(shape {shape}); must supply `head=` kwarg."
+                )
+            v = tensor[0, head, pos, :]
+        else:
+            raise ValueError(
+                f"Unexpected tensor shape {shape} for hook_point {hook_point!r}."
+            )
+        mx.eval(v)
+        v_np = np.array(v)
+        if out is None:
+            out = np.zeros((n, v_np.shape[0]), dtype=np.float32)
+        out[j] = v_np
+    assert out is not None, "Empty ValidatedPromptSet"
+    return out
+
+
 def fact_vectors_pooled(
     model,
     validated,

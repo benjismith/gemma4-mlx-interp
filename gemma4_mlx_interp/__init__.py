@@ -64,6 +64,7 @@ from .geometry import (
     entropy_bits,
     fact_vectors,
     fact_vectors_at,
+    fact_vectors_at_hook,
     fact_vectors_pooled,
     intra_inter_separation,
     iterate_clusters,
@@ -131,6 +132,7 @@ __all__ = [
     # Fact vectors + geometry
     "fact_vectors",
     "fact_vectors_at",
+    "fact_vectors_at_hook",
     "fact_vectors_pooled",
     "centroid_decode",
     "cohesion",

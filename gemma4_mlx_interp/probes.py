@@ -51,15 +51,29 @@ class Probe:
 
     Attributes:
         name: Human-readable label for the concept (e.g. 'happy').
-        vec: Unit-normalized concept direction, shape [d_model], float32.
-        layer: Residual-stream layer index this probe operates at.
-        baseline_mean: Vector subtracted from residuals before projection,
-            shape [d_model], float32. In the standard construction, this is
-            the grand mean across the positive corpus.
-        orthogonalizer: Optional [k, d_model] array whose rows are
-            orthonormal baseline-PC directions; these are projected out of
-            residuals before scoring, to remove non-concept common-mode
+        vec: Unit-normalized concept direction. Shape is [d] where d is
+            the dimensionality of the stream this probe targets: d_model
+            for residual-stream probes, head_dim for per-head Q/K/V
+            probes, intermediate_size for MLP-activation probes, etc.
+        layer: Layer index. For residual probes this is the layer the
+            residual was extracted at. For per-head or per-stream probes,
+            it is the layer index part of hook_point.
+        baseline_mean: Vector subtracted from activations before
+            projection, shape [d], float32. In the standard construction
+            this is the grand mean across the positive corpus.
+        orthogonalizer: Optional [k, d] array whose rows are orthonormal
+            baseline-PC directions; these are projected out of
+            activations before scoring, to remove non-concept common-mode
             variance. None if no orthogonalization was applied.
+        hook_point: Optional fully-qualified hook-point name, e.g.
+            'blocks.23.resid_post', 'blocks.14.attn.q', 'blocks.28.mlp_out'.
+            Defaults to f'blocks.{layer}.resid_post' when not specified,
+            which is the canonical residual-stream probe form. When set
+            to a per-head stream ('.attn.q', '.attn.k', '.attn.v',
+            '.attn.per_head_out'), `head` must also be set.
+        head: For per-head streams, which head (Q-head for .attn.q and
+            .attn.per_head_out; KV-head for .attn.k and .attn.v) this
+            probe targets. None for residual-stream probes.
     """
 
     name: str
@@ -67,6 +81,14 @@ class Probe:
     layer: int
     baseline_mean: np.ndarray
     orthogonalizer: Optional[np.ndarray] = None
+    hook_point: Optional[str] = None
+    head: Optional[int] = None
+
+    @property
+    def effective_hook_point(self) -> str:
+        """The hook point this probe operates at. Falls back to the
+        residual-post convention when hook_point is None."""
+        return self.hook_point or f"blocks.{self.layer}.resid_post"
 
     def score(self, residuals: np.ndarray) -> np.ndarray:
         """Project residuals onto this probe and return a scalar per input.
@@ -108,6 +130,8 @@ class Probe:
         baseline_mean: np.ndarray | None = None,
         orthogonalizer: np.ndarray | None = None,
         normalize: bool = True,
+        hook_point: Optional[str] = None,
+        head: Optional[int] = None,
     ) -> "Probe":
         """Build a Probe from a raw vector plus optional baseline/orthogonalizer.
 
@@ -126,7 +150,8 @@ class Probe:
             else np.asarray(baseline_mean, dtype=np.float32).reshape(d)
         )
         return cls(name=name, vec=v, layer=layer,
-                   baseline_mean=bm, orthogonalizer=orthogonalizer)
+                   baseline_mean=bm, orthogonalizer=orthogonalizer,
+                   hook_point=hook_point, head=head)
 
     @classmethod
     def from_corpus(
@@ -138,6 +163,8 @@ class Probe:
         layer: int,
         explain: float = 0.5,
         orthogonalize: bool = True,
+        hook_point: Optional[str] = None,
+        head: Optional[int] = None,
     ) -> "Probe":
         """Difference-of-means probe from a single positive corpus vs a baseline.
 
@@ -173,7 +200,7 @@ class Probe:
         return cls.from_vector(
             clean_vec, name=name, layer=layer,
             baseline_mean=mean_base, orthogonalizer=Pmat,
-            normalize=True,
+            normalize=True, hook_point=hook_point, head=head,
         )
 
     @classmethod
@@ -185,6 +212,8 @@ class Probe:
         layer: int,
         explain: float = 0.5,
         orthogonalize: bool = True,
+        hook_point: Optional[str] = None,
+        head: Optional[int] = None,
     ) -> dict[str, "Probe"]:
         """Build one probe per concept label from a labeled corpus.
 
@@ -222,7 +251,7 @@ class Probe:
             probes[cname] = cls.from_vector(
                 raw_vec, name=cname, layer=layer,
                 baseline_mean=grand_mean, orthogonalizer=Pmat,
-                normalize=True,
+                normalize=True, hook_point=hook_point, head=head,
             )
         return probes
 
