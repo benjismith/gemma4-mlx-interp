@@ -275,3 +275,28 @@ def nearest_neighbor_purity(
     nn_idx = np.argmax(sim, axis=1)
     hits = labels_arr[nn_idx] == labels_arr
     return float(hits.mean()), hits
+
+
+def cohesion(vectors: np.ndarray) -> float:
+    """Mean cosine similarity between each vector and the cluster centroid.
+
+    Measures how tightly a group of vectors is clustered around its own mean.
+    Range [-1, 1]; higher = tighter cluster.
+
+    Distinct from the mean intra-cluster pairwise cosine that you'd compute
+    via cosine_matrix + masking: cohesion is member-to-centroid (n similarities)
+    rather than member-to-member (n*(n-1)/2). Cohesion is generally >= the
+    intra-cluster pairwise mean since the centroid is the maximum-likelihood
+    'anchor' that minimizes the angular spread.
+    """
+    if len(vectors) == 0:
+        return 0.0
+    centroid = vectors.mean(axis=0)
+    centroid_norm = np.linalg.norm(centroid)
+    if centroid_norm < 1e-12:
+        return 0.0
+    centroid_unit = centroid / centroid_norm
+    member_norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    member_units = vectors / np.clip(member_norms, 1e-12, None)
+    sims = member_units @ centroid_unit
+    return float(sims.mean())

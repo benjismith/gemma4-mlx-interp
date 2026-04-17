@@ -57,6 +57,7 @@ from .errors import (
 from .geometry import (
     centroid_decode,
     cluster_purity,
+    cohesion,
     cosine_matrix,
     fact_vectors,
     fact_vectors_at,
@@ -108,6 +109,7 @@ __all__ = [
     "fact_vectors",
     "fact_vectors_at",
     "centroid_decode",
+    "cohesion",
     "cosine_matrix",
     "intra_inter_separation",
     "cluster_purity",
