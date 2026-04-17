@@ -15,6 +15,7 @@ Three layers of functionality:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Iterable, Optional
 
 import mlx.core as mx
@@ -300,3 +301,97 @@ def cohesion(vectors: np.ndarray) -> float:
     member_units = vectors / np.clip(member_norms, 1e-12, None)
     sims = member_units @ centroid_unit
     return float(sims.mean())
+
+
+# ---------------------------------------------------------------------------
+# Vocabulary-space concentration
+#
+# Given a residual vector projected through the tied unembed and softmaxed,
+# how concentrated is the resulting distribution? "Concentrated" can mean
+# several things; these primitives give the standard framings, and
+# vocab_concentration returns them all in a single structured result.
+#
+# The primitives work on ANY probability distribution, not just vocab ones —
+# the "vocab" framing is about the typical use case (project a residual,
+# softmax, ask how peaked the result is) but the math is generic.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class VocabConcentration:
+    """Concentration metrics for a probability distribution (typically a
+    vocabulary-space distribution produced by projecting a residual vector
+    through the tied unembed and softmaxing).
+
+    Attributes:
+        top1: probability of the single most-likely token.
+        top_k_mass: sum of the top-k probabilities. Use for robustness to
+            ties and to capture how 'peaked' the distribution is at the high end.
+        k: the k that top_k_mass was computed at (so the result is self-describing).
+        entropy_bits: Shannon entropy in bits. Lower = more concentrated.
+            Range [0, log2(vocab_size)]; for Gemma 4 E4B's 262,144-token vocab,
+            uniform distribution = log2(262144) = 18.0 bits.
+        effective_vocab_size: exp(entropy_in_nats). Roughly 'how many tokens
+            worth of probability mass is the distribution effectively spread
+            over'. A delta gives 1; a uniform distribution gives the vocab size.
+    """
+
+    top1: float
+    top_k_mass: float
+    k: int
+    entropy_bits: float
+    effective_vocab_size: float
+
+
+def top_k_mass(probs: np.ndarray, k: int = 10) -> float:
+    """Sum of the top-k probabilities in a discrete distribution."""
+    if probs.size == 0 or k <= 0:
+        return 0.0
+    k = min(k, probs.size)
+    # np.partition is O(n); avoids a full sort
+    return float(np.partition(probs, -k)[-k:].sum())
+
+
+def entropy_bits(probs: np.ndarray) -> float:
+    """Shannon entropy of a probability distribution, in bits.
+
+    Lower = more concentrated. A delta distribution has entropy 0;
+    a uniform distribution over N items has entropy log2(N).
+    """
+    p = np.clip(probs, 1e-12, 1.0)
+    return float(-np.sum(p * np.log2(p)))
+
+
+def effective_vocab_size(probs: np.ndarray) -> float:
+    """exp(entropy_in_nats). The 'how many tokens worth' the distribution
+    is effectively spread over.
+
+    A delta gives 1.0; a uniform over N items gives N. Equivalent to
+    perplexity of a model whose distribution this is.
+    """
+    nats = entropy_bits(probs) * np.log(2)
+    return float(np.exp(nats))
+
+
+def vocab_concentration(probs: np.ndarray, k: int = 10) -> VocabConcentration:
+    """Compute the standard concentration metrics for a probability
+    distribution in one pass, returning a structured VocabConcentration.
+
+    Use when you want all four metrics together (the common case for the
+    "how concentrated is this decoded distribution" question). Use the
+    individual primitives (top_k_mass / entropy_bits / effective_vocab_size)
+    when you want just one.
+    """
+    if probs.size == 0:
+        return VocabConcentration(
+            top1=0.0, top_k_mass=0.0, k=k,
+            entropy_bits=0.0, effective_vocab_size=0.0,
+        )
+    top1 = float(probs.max())
+    tk = top_k_mass(probs, k=k)
+    h = entropy_bits(probs)
+    ev = float(np.exp(h * np.log(2)))
+    return VocabConcentration(
+        top1=top1, top_k_mass=tk, k=k,
+        entropy_bits=h, effective_vocab_size=ev,
+    )

@@ -55,15 +55,20 @@ from .errors import (
     LayerIndexOutOfRange,
 )
 from .geometry import (
+    VocabConcentration,
     centroid_decode,
     cluster_purity,
     cohesion,
     cosine_matrix,
+    effective_vocab_size,
+    entropy_bits,
     fact_vectors,
     fact_vectors_at,
     intra_inter_separation,
     nearest_neighbor_purity,
     silhouette_cosine,
+    top_k_mass,
+    vocab_concentration,
 )
 from .hooks import HookFn, HookInfo, parse_hook_name
 from .interventions import Ablate, Capture, Intervention, Patch, compose
@@ -115,6 +120,12 @@ __all__ = [
     "cluster_purity",
     "silhouette_cosine",
     "nearest_neighbor_purity",
+    # Vocabulary-space concentration
+    "VocabConcentration",
+    "vocab_concentration",
+    "top_k_mass",
+    "entropy_bits",
+    "effective_vocab_size",
     # Plot helpers
     "bar_by_layer",
     "lens_trajectory",

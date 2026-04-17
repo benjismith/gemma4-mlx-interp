@@ -40,30 +40,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from gemma4_mlx_interp import (  # noqa: E402
-    Model, centroid_decode, cohesion, fact_vectors_at,
+    Model, cohesion, fact_vectors_at, vocab_concentration,
 )
 from experiments.prompts import BIG_SWEEP_96, HOMONYM_CAPITAL_ALL  # noqa: E402
 
 OUT_DIR = ROOT / "caches"
 LAYERS = [30, 41]
-
-
-def _entropy(probs: np.ndarray) -> float:
-    """Shannon entropy in bits over a discrete probability distribution."""
-    p = np.clip(probs, 1e-12, 1.0)
-    return float(-np.sum(p * np.log2(p)))
-
-
-def _decode_distribution(model, vec_np: np.ndarray) -> np.ndarray:
-    """Project a single vector through the tied unembed and softmax it.
-    Returns the full vocab-sized probability distribution (numpy float32)."""
-    import mlx.core as mx
-    v = mx.array(vec_np[None, None, :], dtype=mx.bfloat16)
-    logits = model.project_to_logits(v)
-    last = logits[0, 0, :].astype(mx.float32)
-    probs = mx.softmax(last)
-    mx.eval(probs)
-    return np.array(probs)
 
 
 def analyze_corpus(model, name: str, prompt_set, layers: list[int]) -> list[dict]:
@@ -89,16 +71,11 @@ def analyze_corpus(model, name: str, prompt_set, layers: list[int]) -> list[dict
             cluster_vecs = vecs[mask]
             coh = cohesion(cluster_vecs)
             # Mean-subtracted centroid (corpus-wide mean)
-            centroid_sub = cluster_vecs.mean(axis=0) - overall_mean
-            probs = _decode_distribution(model, centroid_sub.astype(np.float32))
+            centroid_sub = (cluster_vecs.mean(axis=0) - overall_mean).astype(np.float32)
+            probs = model.decoded_distribution(centroid_sub)
+            conc = vocab_concentration(probs, k=5)
             top1_id = int(np.argmax(probs))
             top1_tok = model.tokenizer.decode([top1_id])
-            top1_p = float(probs[top1_id])
-            top5_idx = np.argsort(-probs)[:5]
-            top5 = [(model.tokenizer.decode([int(i)]), float(probs[int(i)]))
-                    for i in top5_idx]
-            top5_mass = float(probs[top5_idx].sum())
-            ent = _entropy(probs)
             records.append({
                 "corpus": name,
                 "layer": L,
@@ -106,10 +83,10 @@ def analyze_corpus(model, name: str, prompt_set, layers: list[int]) -> list[dict
                 "n": int(mask.sum()),
                 "cohesion": coh,
                 "top1_tok": top1_tok,
-                "top1_p": top1_p,
-                "top5_mass": top5_mass,
-                "entropy_bits": ent,
-                "top5": top5,
+                "top1_p": conc.top1,
+                "top5_mass": conc.top_k_mass,
+                "entropy_bits": conc.entropy_bits,
+                "effective_size": conc.effective_vocab_size,
             })
     return records
 

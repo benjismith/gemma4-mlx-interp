@@ -184,3 +184,39 @@ class Model:
         if lm.final_logit_softcapping is not None:
             logits = logit_softcap(lm.final_logit_softcapping, logits)
         return logits
+
+    def decoded_distribution(self, vector) -> np.ndarray:
+        """Project a single residual vector through the tied unembed, softmax,
+        and return the full vocabulary-sized probability distribution as a
+        numpy float32 array.
+
+        Convenience wrapper around project_to_logits that handles the common
+        case of "I have a 1D residual vector and I want its decoded
+        probability distribution". Accepts:
+          - mx.array of shape [D_MODEL]
+          - mx.array of shape [1, D_MODEL] or [1, 1, D_MODEL]
+          - np.ndarray of shape [D_MODEL] (will be converted to bf16 mx.array)
+
+        Returns: np.ndarray of shape [vocab_size], dtype float32, summing to 1.
+
+        For batches or per-position distributions, use project_to_logits
+        directly and softmax yourself.
+        """
+        if isinstance(vector, np.ndarray):
+            v = mx.array(vector[None, None, :], dtype=mx.bfloat16)
+        elif vector.ndim == 1:
+            v = vector[None, None, :]
+        elif vector.ndim == 2:
+            v = vector[None, :, :]
+        else:
+            v = vector
+        logits = self.project_to_logits(v)
+        # Reduce to [vocab] regardless of input shape: take [..., -1, :] then
+        # flatten leading dims down to a single distribution.
+        last = logits[..., -1, :].astype(mx.float32)
+        # Flatten any leading batch dims by indexing from the front
+        while last.ndim > 1:
+            last = last[0]
+        probs = mx.softmax(last)
+        mx.eval(probs)
+        return np.array(probs)
