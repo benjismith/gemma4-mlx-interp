@@ -510,3 +510,42 @@ L17 has now come up three times in the project. Section 7 identified it as the l
 The methodological thread that runs through all four experiments: **per-head analysis reveals structure the residual stream averages over**. The residual at layer L is the sum of all prior attention and MLP contributions. Whichever head has the sharpest representation for your concept is diluted by every other head's contribution. If you analyze per-head, you can identify specialists. If you only analyze residuals, you see their average.
 
 This isn't new to the mech-interp field — per-head analysis has been standard since the Elhage paper. What's new in this project is that the primitives for doing it systematically — capture Q/K/V at any layer, build probes over any per-head subspace, compute silhouette across 420 combinations in five seconds — are now packaged into a framework where a user can run them in a few lines of composition. In a scripting environment you wire up the captures, the extraction, the probe construction, the metric, and the visualization yourself for each experiment. The framework collapses that into composable primitives: 504-combination sweeps become cheap enough that automatic specialist discovery is a default part of any workflow, not a specialized technique set up custom for one experiment.
+
+---
+
+## 21. The L23 Pivot
+
+One of the things you hope for in a probe-heavy project is that, after enough experiments from enough angles, the findings converge on something specific. By this point in the essay, they have. A single layer keeps coming up, across tasks that otherwise don't share anything.
+
+The tally:
+
+- **Section 5**: layer 23 is the only layer in the network where ablating the attention branch does more damage than ablating the MLP branch, on factual-recall prompts.
+- **Section 7**: the MatFormer side-channel ablation concentrated its effect at layer 23, among the top three single-layer hotspots.
+- **Section 16**: per-layer ablation for homonym sense disambiguation identified layer 23 as the single most damaging ablation at the L41 readout.
+
+Three independent confirmations on three different tasks. Then, on April 18, @_lyraaaa_ posted a thread describing a residual-stream direction in Gemma 4 E4B that correlates with per-token surprisal at r = 0.919, R² = 0.845 — peak at layer 21, with the band L20-L24 all strongly correlated. She also pointed out that this "surprise direction" rotates sharply at specific layer boundaries: L22 → L23 at cosine similarity 0.03, essentially orthogonal. Her work was independent of this project; she was working on 1,600 FineFineWeb passages; her code was PyTorch.
+
+I ran the same analysis on our in-repo corpus — 112 short passages from the emotion-probe set, 3,367 content tokens after chat-template filtering, ridge regression against per-token surprisal across all 42 layers. The peak landed at **layer 23** with test R² = 0.671, correlation = 0.82. One layer off from her peak, lower R² because we have ~30× less data, but the same structural band. And the cosine similarity between L22 → L23 in our learned weight vectors: **0.033**. Her number was 0.03. A two-decimal-place match between a hand-curated emotion corpus and a general-web corpus is a strong signal that what both of us are measuring is an architectural property of the model, not an artifact of either corpus.
+
+Four independent cross-task confirmations, on a specific layer. At some point "it keeps being this layer" crosses the threshold from coincidence to structural. And this is where it became possible to say something about *why*.
+
+**The architectural explanation is tight.** Gemma 4 E4B has two independent mechanism switches along its depth:
+
+1. **Hybrid attention.** Layers 5, 11, 17, 23, 29, 35, 41 are global-attention layers; the other 35 use sliding-window local attention. Globals can integrate information across the full sequence; locals see only a small neighborhood.
+2. **KV-sharing.** Starting at layer 24, every downstream layer reuses the key and value tensors from an earlier non-shared global layer rather than computing fresh K/V from its own residual. Per the model config, 18 of the 42 layers are KV-shared.
+
+Intersect the two. Layers 5, 11, 17, 23 are the only layers that compute *fresh* K/V *and* do *global* attention. Later globals (29, 35, 41) are global in structure but read keys from L23's cache — their attention pattern addresses exactly the representation L23 already saw. Any computation that needs a fresh, content-aware global-attentional read of the residual stream has four homes; layer 23 is the deepest, meaning the residual has been maximally refined before the fresh-K/V-global mechanism becomes unavailable.
+
+**The training-pressure argument follows from this.** Gradient descent over trillions of tokens will settle every computation the network needs at whatever layer best supports it. Computations that don't require fresh-K/V global attention can live anywhere; the 18 KV-shared layers offer many homes. Computations that *do* require that specific mechanism, applied to a deep refined residual, have exactly one home. That's layer 23. The concentration we observe is the fingerprint of training pressure hitting an architectural bottleneck.
+
+Different downstream tasks turn out to be different *uses* of that same substrate. Factual recall needs to route information from the subject-position residual to the final-position residual via fresh-K/V global attention. Sense disambiguation needs to integrate disambiguating context tokens with the homonym position, same way. Surprisal tracking needs to evaluate the next-token distribution against an integrated-context representation. All four prerequisite fresh-K/V global attention on the deep residual; all four concentrate at L23.
+
+**This is worth stating as a general principle.** Any architecture with non-uniform mechanism availability — hybrid attention, MoE with sparse routing, conditional-compute designs — should concentrate mechanism-dependent computations at the boundaries of where the mechanism exists. The last layer of each kind before its availability changes is where load accumulates for things that require that kind. Gemma 4 gives us a particularly sharp version because two mechanism switches (fresh-K/V and global attention) coincide to define exactly one "last-of-its-kind" layer in the deep half of the network. In a model with only one non-uniformity, the pattern would be softer but should still be present.
+
+The principle is testable. Gemma 4 E2B — the 5.1B-parameter sibling, 35 layers total — has its own KV-sharing boundary and its own global-attention pattern. If the perplexity probe on E2B peaks at E2B's analogous "last fresh-K/V global" layer, the principle has empirical support beyond this one model. Lyra's cross-model comparison thread already hints that the pattern holds; a full replication is filed as follow-up work.
+
+**Where this leaves the project.** If there's a thesis beyond "interpretability is possible on small open-weight models running locally," the L23 finding is it. Four experiments from four different angles, on four different kinds of task, agree on one layer. The explanation is mechanistic: training pressure concentrates load at mechanism boundaries. The prediction generalizes: mixed-architecture models should exhibit equivalent pivot layers at their own mechanism boundaries.
+
+This is the kind of convergence that makes interpretability feel like it's doing science — not just describing individual behaviors but identifying structural regularities that predict behavior in untested cases. Even if the prediction fails on E2B, the failure itself would clarify what we're actually seeing at L23 on E4B. Either outcome is informative.
+
+The MatFormer side-channel finding from section 7 was the headline I went looking for at the start. The L23 pivot was the one that found me at the end.
