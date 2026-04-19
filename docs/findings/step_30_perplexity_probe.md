@@ -4,11 +4,11 @@
 **Script:** `experiments/step_30_perplexity_probe.py`
 **Plot:** `caches/perplexity_probe_per_layer.png`
 **Data:** `caches/perplexity_probe_weights.npz`
-**Replicates:** [@_lyraaaa_'s Twitter thread, 2026-04-18](https://twitter.com/_lyraaaa_)
+**Replicates:** [@_lyraaaa_'s thread, 2026-04-18](https://x.com/_lyraaaa_/status/2045373503311122712)
 
 ## The setup
 
-@_lyraaaa_ reported on Twitter (2026-04-18) that a residual-stream direction in Gemma 4 E4B correlates with per-token surprisal at **r = 0.919, R² = 0.845 at layer 21**, validated on 1,600 FineFineWeb passages. She also noted that the "surprise direction" rotates sharply at certain layer boundaries — particularly L22 → L23 with cosine similarity 0.03 (essentially orthogonal).
+[@_lyraaaa_ reported](https://x.com/_lyraaaa_/status/2045373503311122712) on 2026-04-18 that a residual-stream direction in Gemma 4 E4B correlates with per-token surprisal at **r = 0.919, R² = 0.845 at layer 21**, validated on 1,600 FineFineWeb passages. She also noted that the "surprise direction" rotates sharply at certain layer boundaries — particularly L22 → L23 with cosine similarity 0.03 (essentially orthogonal).
 
 This experiment replicates the finding on our existing in-repo corpus (112 short passages from `EMOTION_STORIES_TINY + EMOTION_NEUTRAL_BASELINE`, 3,367 content tokens after filtering chat-template prefix positions).
 
