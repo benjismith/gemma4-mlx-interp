@@ -15,7 +15,10 @@ notes/
 .vscode/
 .idea/
 
-# Beads / Dolt files (added by bd init)
+# Historical: beads tracker was removed during the mechbench migration.
+# These entries stay as defense-in-depth against stray state if the tool
+# ever reappears — the repo should never contain them on purpose.
+.beads/
 .dolt/
 *.db
 .beads-credential-key
