@@ -1,20 +1,18 @@
-"""run_local_agent.py — polling shim for the e2e trace (task 000182).
+"""run_local_agent.py — DEPRECATED polling shim.
 
-Plays the "agent" role in epic 000178. Polls the mechbench-api for
-queued jobs, runs them via mechbench-core, posts results back.
+This file was the throwaway shim for epic 000178's e2e trace (task
+000182). It has been superseded by the `mechbench-agent` repo (task
+000185), which provides the same job-runner loop as one subcommand
+alongside the real MCP surface:
 
-This is **not** mechbench-agent — that repo's real surface (MCP / RPC)
-is task 000185. This shim buys the trace without blocking on that
-design; it is intentionally throwaway.
+    pip install -e ../mechbench-agent
+    export MECHBENCH_API_URL=http://localhost:3000
+    export MECHBENCH_API_KEY=mbk_...
+    mechbench-agent run
 
-Usage:
-
-    python bin/run_local_agent.py \\
-        --api http://localhost:3000 \\
-        --api-key mbk_...
-
-The API key can also come from MECHBENCH_API_KEY. Exit cleanly on
-SIGINT.
+This file is kept functional for one migration window so anything
+wired to the old path doesn't break. It will be removed in a
+follow-up cleanup task.
 """
 
 from __future__ import annotations
