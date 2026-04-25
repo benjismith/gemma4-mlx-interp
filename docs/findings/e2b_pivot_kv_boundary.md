@@ -58,19 +58,50 @@ There IS a clean distinction visible in the E2B data: **fresh-K/V globals carry 
 
 Mean of fresh-K/V globals: −8.51. Mean of KV-shared globals: −1.71. **5× ratio.** That's a real architectural distinction the data supports — KV-shared globals are doing markedly less work than fresh-K/V ones in E2B's compute. But this is a coarser, group-level claim than the framing's "specific boundary global is uniquely special" claim, and not the one being tested.
 
-## Next steps
+## Step_04 — sublayer ablation (attention vs MLP)
 
-Run step_04 (sublayer ablation) on E2B — that was the cleanest E4B signal for the L23 pivot. If the L14 prediction also fails there, the framing is dead. If it confirms, we're back to a one-step-of-five mixed picture and need to take the rest seriously.
+E4B's strongest L23 evidence: "MLPs dominate; **only L23 is attention-critical** and weakly L17." E2B run, 9 prompts validated (more rejections than step_02 because some baseline top-1s are placeholder/markdown tokens like `'**'`):
+
+Attention-ablation top-5: **L0 (−10.54), L14 (−7.26), L12 (−6.90), L13 (−6.38), L2 (−4.77)**.
+
+Comparison points:
+
+| layer | role | attn Δ | median attn Δ |
+|---|---|---|---|
+| L14 | predicted pivot (GLOBAL) | **−7.26** | **−6.90** |
+| L9 | null: fresh-K/V global | −3.04 | −1.25 |
+| L19 | first KV-shared global | −0.88 | +0.00 |
+
+**This time the framing's predictions partially hold:**
+
+- L14 is #2 by mean attention damage (after L0, which is the trivial baseline — first layer is always damaging in any layer-ablation experiment).
+- **L9 behaves as a null** at less than half L14's damage.
+- KV-shared globals (L19+) are nearly invisible to attention ablation — L19 attn Δ = −0.88, L29 = +0.03, L34 = +0.02.
+
+**But the prediction isn't clean.** L12 and L13 — *sliding* layers immediately upstream of L14 — are also attention-critical at Δ ≈ −6.5. So what the data actually supports is **a "L12-L14 attention-critical band", not an isolated peak at L14**. L14 is the *most* attention-critical layer in that band, and it happens to be the global one, but the framing's "specific boundary global is uniquely special" claim is fuzzy at best.
+
+Also notable: **MLP ablation dominates almost everywhere**, with peak at L0 (−19.2), then a wide band L2–L11 all in the −10 to −17 range. The "MLPs dominate" half of E4B's step_04 finding reproduces cleanly on E2B; the "only L23 is attention-critical" half maps to "L14 ± neighbors are attention-critical" — partial reproduction.
 
 ## Convergence table (in progress)
 
-| experiment | E4B peak (originally claimed) | E2B peak (predicted L14) | E2B null (predicted: L9 unremarkable) | verdict |
+| experiment | E4B peak (re-checked) | E2B peak | E2B null L9 | E2B verdict |
 |---|---|---|---|---|
-| step_02 layer ablation | L23 (#3-#4 actual) | **L6** (sliding) | **L9 outranks L14** | **fails** |
-| step_04 sublayer ablation | L23 attn-critical | — | — | not yet run |
+| step_02 layer ablation | L23 (#3-#4) | L6 (sliding) | **L9 outranks L14** | **fails** |
+| step_04 sublayer ablation (attn) | "only L23 attn-critical" | L14 #2 (after baseline L0); L12, L13 also high | L9 unremarkable as predicted | **partial** |
 | step_20 homonym layer ablation | — | — | — | not yet run |
 | step_30 perplexity probe | — | — | — | not yet run |
 | step_33 DLA factual sweep | — | — | — | not yet run |
+
+## Where this leaves the framing
+
+- **Step_02** says early sliding layers dominate; the framing's specific prediction fails outright.
+- **Step_04** says the attention-critical band is L12-L14 with L14 winning; the framing is partially supported, with the null behaving as predicted.
+
+Two experiments, mixed result. Worth running step_20 / step_30 / step_33 to see whether the framing stabilizes or the picture stays mixed. If the rest also come out partial, the honest update is that the L23-style pivot is **a feature of the attention-critical layers cluster near the KV boundary, not a single special layer**, and the framing should be reformulated accordingly.
+
+## Next step
+
+step_20 (homonym layer ablation) or step_30/31 (perplexity probe). step_31 already has an E2B port; that's the cheapest next datapoint.
 
 ## Sources
 
