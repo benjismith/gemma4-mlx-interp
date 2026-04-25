@@ -60,10 +60,23 @@ The right summary is therefore not "different spacing rules for E4B vs E2B" but:
 
 We previously claimed the architectural pivot at L23 in E4B "generalizes across the family" because the analogous layer in E2B (L14) showed the same convergence. With the wider config table:
 
-- The pivot lands consistently at **2 globals before the end** in the E-series: E4B [5,11,17,23,29,35,41] — pivot at 23 = position 4 of 7; E2B [4,9,14,19,24,29,34] — pivot at 14 = position 3 of 7. Not the same *index*, not the same *depth fraction*, not the same *count of KV-shared layers downstream*. The cleanest invariant we have is "the global immediately upstream of the first KV-shared region": E4B's `first_kv_shared = 24`, pivot at L23 = global immediately before. E2B's `first_kv_shared = 15`, pivot at L14 = global immediately before. **This is the new candidate generalization to test.**
-- The 26B-A4B and 31B variants have `num_kv_shared_layers = 0`, so this candidate doesn't even define a pivot for them. Either the pivot phenomenon is specific to the on-device E-series (because it's an artifact of where fresh-K/V globals end and KV-reuse begins), or it generalizes to the larger non-E variants in some other way that we haven't found yet.
+- ~~The pivot lands consistently at **2 globals before the end** in the E-series: E4B [5,11,17,23,29,35,41] — pivot at 23 = position 4 of 7; E2B [4,9,14,19,24,29,34] — pivot at 14 = position 3 of 7. The cleanest invariant we have is "the global immediately upstream of the first KV-shared region".~~ **Refuted by 000188 — see below.**
+- The 26B-A4B and 31B variants have `num_kv_shared_layers = 0`, so the KV-boundary candidate doesn't even define a pivot for them; whether they exhibit a pivot phenomenon at all remains untested (blocked on `mechbench-remote` for memory reasons).
 
-Both are independently interesting. The pivot-as-KV-boundary reframing is the more disciplined hypothesis and is testable on the larger E-series checkpoints if any are released; the pivot-as-something-else reframing requires running the existing experiments against 26B-A4B or 31B and seeing whether *any* layer shows the convergence.
+## Update (2026-04-25 — task 000188 refuted the KV-boundary candidate)
+
+I ran the predictive battery on E2B (steps 02, 04, 30/31, 33) — full writeup at [`e2b_pivot_kv_boundary.md`](e2b_pivot_kv_boundary.md). The framing's specific claim ("L14 is E2B's pivot, mirroring E4B's L23") **fails**:
+
+- **step_02** (layer ablation): peak L6, L9 outranks L14 — opposite of null prediction.
+- **step_04** (sublayer ablation): L14 is the most attention-critical non-trivial layer, but L12-13 are nearly tied; null L9 unremarkable as predicted. Partial.
+- **step_30/31** (perplexity probe): R² peaks at L12, rotation at L13→L14. Partial — rotation aligned, magnitude not.
+- **step_33** (DLA factual sweep): commits cluster at L20-27 (median L23), 0/15 at the predicted L15. Decisive fail.
+
+**What survives:** the *group-level* distinction between fresh-K/V globals (heavy: 5× more layer-ablation damage than KV-shared globals; carry the attention-critical work) and KV-shared globals (light: near-invisible to attention ablation). The *per-layer* "specific global is the pivot" claim does not.
+
+**A new candidate that emerged from the data:** the commit median in E2B is L23 (=23/35 ≈ 0.66 of depth) and in E4B is L25 (=25/42 ≈ 0.60 of depth). Comparable fractions. The pivot may be a **fixed depth-fraction** thing rather than an architectural-spacing thing — which would make it a model-scale property, not a Gemma-4-E-series feature. Filed as a candidate for the next round of work.
+
+Both candidates that came out of 000125 (last-layer-global rule and KV-boundary rule) have now been examined. The first is real but Gemma-4-only (000189 confirmed via Gemma 3 4B). The second was a tempting post-hoc reading that didn't survive predictive testing on E2B itself. The L23-essay's "the model does its real work at L23" claim still stands, but the architectural *explanation* of why is open again.
 
 ## Sources
 

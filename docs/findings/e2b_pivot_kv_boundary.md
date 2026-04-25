@@ -89,19 +89,84 @@ Also notable: **MLP ablation dominates almost everywhere**, with peak at L0 (−
 | step_02 layer ablation | L23 (#3-#4) | L6 (sliding) | **L9 outranks L14** | **fails** |
 | step_04 sublayer ablation (attn) | "only L23 attn-critical" | L14 #2 (after baseline L0); L12, L13 also high | L9 unremarkable as predicted | **partial** |
 | step_20 homonym layer ablation | — | — | — | not yet run |
-| step_30 perplexity probe | — | — | — | not yet run |
+| step_30/31 perplexity probe | R² peak L21, rotation L22→L23 | R² peak **L12**, rotation **L13→L14** (test R²=0.619) | (probe doesn't have a null point) | **partial** |
 | step_33 DLA factual sweep | — | — | — | not yet run |
 
-## Where this leaves the framing
+## Step_30/31 — perplexity probe
 
-- **Step_02** says early sliding layers dominate; the framing's specific prediction fails outright.
-- **Step_04** says the attention-critical band is L12-L14 with L14 winning; the framing is partially supported, with the null behaving as predicted.
+`step_31_perplexity_probe_e2b.py` already ran in an earlier session with its own finding at [`docs/findings/step_31_perplexity_probe_e2b.md`](step_31_perplexity_probe_e2b.md). Folding its result into the convergence picture:
 
-Two experiments, mixed result. Worth running step_20 / step_30 / step_33 to see whether the framing stabilizes or the picture stays mixed. If the rest also come out partial, the honest update is that the L23-style pivot is **a feature of the attention-critical layers cluster near the KV boundary, not a single special layer**, and the framing should be reformulated accordingly.
+- **R² peak at L12** (test R² = 0.619), not at L14 (predicted) — peak is **two layers before the predicted pivot**.
+- **Sharpest rotation L13 → L14** (cosine 0.0152) — at the predicted pivot.
+- This same offset pattern holds in E4B: there, the R² peak is at L21 (two before the predicted L23), with the rotation at L22 → L23. **The pattern transfers**: R² peaks just before the KV-boundary global, then the residual rotates *at* the boundary.
 
-## Next step
+So step_30/31 says: **the predicted pivot is the rotation site, but not the peak of surprisal-decodability**. That's a much narrower architectural claim than "L14 is uniquely special" — the actual story is "L12-13 host peak surprisal info; L14 is the boundary where the basis rotates." Partial support, with the rotation aligned to the predicted pivot but the magnitude peak two layers upstream.
 
-step_20 (homonym layer ablation) or step_30/31 (perplexity probe). step_31 already has an E2B port; that's the cheapest next datapoint.
+## Step_33 — DLA factual sweep
+
+For each of the 15 FACTUAL_15 prompts, compute (target − distractor) at every layer's resid_post via direct logit attribution, find the *commit layer* (last layer where the diff is still negative — i.e. the residual still prefers the distractor — plus one).
+
+E4B's analogous step_33 finding: commits cluster around L25, just after the L23-L24 KV-boundary. The framing predicts: E2B commits should cluster at L15, just after L14.
+
+**E2B commit-layer distribution across 15 prompts:**
+
+| layer | #prompts |
+|---|---|
+| L14 | 1 (Shakespeare/Marlowe) |
+| L20 | 2 |
+| L21 | 2 |
+| L23 | 4 ← median |
+| L24 | 1 |
+| L25 | 1 |
+| L26 | 1 |
+| L27 | 1 |
+| L35 | 2 (final-layer commits — Brazil/Peru, meters/miles, both with weak final diffs) |
+
+- At predicted L15: **0/15**
+- Within ±2 of L15: 1/15
+- After L15 (which is most of network): 14/15
+- **Median commit layer: L23**
+
+The strongest DLA peaks (where the residual is most target-preferring) are L28 (+7.60) and L29 (+6.67, GLOBAL — a *KV-shared* global). L14 itself sits at mean +0.03, indistinguishable from zero.
+
+**Verdict: fails outright.** The commits don't cluster anywhere near L15, and L14 is invisible in the DLA curve. What the data actually shows is *late-network commitment* — the model decides in L25-L33, with the **KV-shared globals (L29, L34)** being where target-preference is strongest, the opposite of what the framing's "fresh-K/V globals are special" intuition suggested.
+
+## Where this leaves the framing (4 of 5 experiments)
+
+| experiment | E2B verdict | what it says about L14 |
+|---|---|---|
+| step_02 (layer ablation) | **fails** | L14 part of a fresh-K/V cluster but L9 outranks it |
+| step_04 (sublayer ablation) | **partial** | L14 is the most attention-critical non-trivial layer (L12-13 also high); L9 unremarkable as predicted |
+| step_30/31 (perplexity probe) | **partial** | R² peaks two layers *before* L14; the rotation is *at* L14 |
+| step_33 (DLA factual sweep) | **fails** | Commits cluster at L20-27, median L23 (far from predicted L15); L14 is invisible in DLA curve |
+
+## Verdict on the KV-boundary framing
+
+**Two fails (step_02, step_33), two partials (step_04, step_30/31).** The framing's specific claim — "L14 is the architectural pivot in E2B" — does not hold up to predictive testing. step_33 in particular is decisive: the model's factual commit happens deep in the KV-shared region, not at the KV boundary.
+
+What's left of the framing:
+
+- **The fresh-K/V vs KV-shared distinction is real** at the group level. step_02 showed fresh-K/V globals carry 5× the damage of KV-shared globals; step_04 showed KV-shared globals are near-invisible to attention ablation.
+- **Something does happen at L14**, but it's a rotation site rather than a metric peak — step_30/31 shows the cosine basis changes at L13→L14, even though magnitude peaks at L12.
+- **The "specific layer is uniquely the pivot" framing fails.** L14 isn't the peak of layer-ablation damage, attention-criticality, perplexity-probe R², OR commit timing in E2B. The L23 framing for E4B suffers the same problem when re-examined carefully — L23 isn't the peak in step_02 or in DLA either.
+
+## What story the data actually supports
+
+Across both E4B and E2B, the most defensible architectural claim is:
+
+> **Compute character changes across the fresh-K/V → KV-shared boundary, with fresh-K/V globals doing more attention-critical work and KV-shared globals doing more late-stage residual integration. The "pivot layer" abstraction is a smoothed-over version of a coarser story about which globals are operating in which regime.**
+
+This is much weaker than "L14 = E2B's L23." It's also more honest: the KV-boundary claim survives in coarse-grained form (fresh-K/V vs KV-shared globals are doing different work), but the precise-layer claim doesn't.
+
+The remaining open question — does any specific layer in E2B carry an L23-style multi-experiment convergence — has a different answer: **L23 in E2B** turns up as a quiet but consistent damage point and is the median commit layer in step_33. **L23/35 ≈ 0.657** of network depth; **E4B commit median ≈ L25/42 ≈ 0.595**. Comparable fractions. Maybe the right reframe isn't KV-boundary at all but **"the commit happens at a fixed depth fraction of ~0.6"**, which would make this a model-scale property, not an architecture-family one. Filing as a candidate for follow-up.
+
+## Step_20 not run
+
+Given two fails and two partials in steps 02/04/30/33, step_20 (homonym layer ablation) wasn't expected to flip the verdict. The framing is already refuted on the strongest tests it had. Skipping it for now; can come back if a future framing wants to use it.
+
+## Action on `gemma4_global_spacing.md`
+
+Demote the "pivot = global immediately upstream of first_kv_shared" framing from "candidate generalization" to "rejected (predictive test failed on E2B)". Note the surviving group-level claim: fresh-K/V globals carry more attention-critical work than KV-shared globals.
 
 ## Sources
 
