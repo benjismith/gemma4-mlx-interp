@@ -170,7 +170,7 @@ Demote the "pivot = global immediately upstream of first_kv_shared" framing from
 
 ## Sources
 
-- Battery script: [`experiments/step_02_layer_ablation_e2b.py`](../../experiments/step_02_layer_ablation_e2b.py)
-- E2B raw data: `mechbench-ui/public/data/step_02_layer_ablation_e2b.json`
+- Battery script: [`experiments/step_35_layer_ablation_e2b.py`](../../experiments/step_35_layer_ablation_e2b.py)
+- E2B raw data: `mechbench-ui/public/data/step_35_layer_ablation_e2b.json`
 - E4B raw data (re-read): `mechbench-ui/public/data/step_02_layer_ablation.json`
 - Original framing: [`docs/findings/gemma4_global_spacing.md`](gemma4_global_spacing.md)

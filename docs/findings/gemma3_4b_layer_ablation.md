@@ -96,8 +96,8 @@ Gemma 3 4B's last layer (33) is *sliding*, not global. The "last layer is always
 ## Sources
 
 - Probe script: [`bin/probe_gemma3_4b_ablation.py`](../../bin/probe_gemma3_4b_ablation.py)
-- Battery script: [`experiments/step_02_layer_ablation_gemma3_4b.py`](../../experiments/step_02_layer_ablation_gemma3_4b.py)
+- Battery script: [`experiments/step_34_layer_ablation_gemma3_4b.py`](../../experiments/step_34_layer_ablation_gemma3_4b.py)
 - Single-prompt raw data: `caches/gemma3_4b_layer_ablation.json` (gitignored)
-- Battery raw data: `mechbench-ui/public/data/step_02_layer_ablation_gemma3_4b.json`
+- Battery raw data: `mechbench-ui/public/data/step_34_layer_ablation_gemma3_4b.json`
 - Gemma 3 4B [config](https://huggingface.co/mlx-community/gemma-3-4b-it-bf16/raw/main/config.json)
 - Original L23 finding context: [`docs/findings/gemma4_global_spacing.md`](gemma4_global_spacing.md)

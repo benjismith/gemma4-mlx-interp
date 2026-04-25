@@ -1,4 +1,4 @@
-"""Step 33 — DLA across FACTUAL_15 on Gemma 4 E2B.
+"""Step 37 — DLA across FACTUAL_15 on Gemma 4 E2B.
 
 For each prompt, compute (target - distractor) logit at every layer's
 resid_post via direct logit attribution. The E4B step_33 finding
@@ -142,7 +142,7 @@ def main() -> None:
 
     out_dir = ROOT / "caches"
     out_dir.mkdir(exist_ok=True)
-    out_json = out_dir / "step_33_dla_factual_sweep_e2b.json"
+    out_json = out_dir / "step_37_dla_factual_sweep_e2b.json"
     out_json.write_text(json.dumps({
         "model_id": MODEL_ID,
         "n_layers": n_layers,

@@ -1,4 +1,4 @@
-"""Step 02 — layer-ablation damage curve on Gemma 4 E2B.
+"""Step 35 — layer-ablation damage curve on Gemma 4 E2B.
 
 Predictive validation pass for the KV-boundary framing from task
 000125: the framing predicts the **pivot layer is the global
@@ -9,7 +9,7 @@ analogous experiment on E2B without baking the prediction into
 the methodology is what task 000188 demands.
 
 Outputs:
-  - mechbench-ui/public/data/step_02_layer_ablation_e2b.json
+  - mechbench-ui/public/data/step_35_layer_ablation_e2b.json
     (LayerAblationPayload, same shape as the E4B exporter)
   - stdout summary with the L14 prediction explicitly checked.
 
@@ -63,7 +63,7 @@ def resolve_output_path() -> Path:
     tree_root = here.parent.parent.parent
     ui_data_dir = tree_root / "mechbench-ui" / "public" / "data"
     ui_data_dir.mkdir(parents=True, exist_ok=True)
-    return ui_data_dir / "step_02_layer_ablation_e2b.json"
+    return ui_data_dir / "step_35_layer_ablation_e2b.json"
 
 
 def main() -> None:
@@ -128,7 +128,7 @@ def main() -> None:
             )
 
     payload = LayerAblationPayload(
-        experiment="step_02_layer_ablation_e2b",
+        experiment="step_35_layer_ablation_e2b",
         description=(
             "Per-layer zero-ablation on Gemma 4 E2B (35 layers, globals at "
             "[4, 9, 14, 19, 24, 29, 34], first_kv_shared=15). Predictive test "

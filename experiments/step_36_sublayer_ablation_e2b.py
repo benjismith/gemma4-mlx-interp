@@ -1,4 +1,4 @@
-"""Step 04 — sublayer ablation (attention vs MLP) on Gemma 4 E2B.
+"""Step 36 — sublayer ablation (attention vs MLP) on Gemma 4 E2B.
 
 The cleanest E4B signal for the L23 pivot was step_04: MLP
 ablation drags damage across most of the network, but **attention
@@ -49,7 +49,7 @@ def _last_logp(logits: mx.array) -> np.ndarray:
 def main() -> None:
     out_dir = ROOT / "caches"
     out_dir.mkdir(exist_ok=True)
-    out_json = out_dir / "step_04_sublayer_ablation_e2b.json"
+    out_json = out_dir / "step_36_sublayer_ablation_e2b.json"
 
     print(f"Loading {MODEL_ID}...")
     t0 = time.perf_counter()

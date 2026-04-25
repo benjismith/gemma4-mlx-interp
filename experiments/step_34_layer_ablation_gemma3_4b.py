@@ -1,4 +1,4 @@
-"""Step 02 (Gemma 3 4B port): layer-ablation damage curve.
+"""Step 34 (Gemma 3 4B port of step_02): layer-ablation damage curve.
 
 Mirrors `export_step_02_for_ui.py` against Gemma 3 4B instead of
 Gemma 4 E4B. The methodology is identical:
@@ -70,7 +70,7 @@ def resolve_output_path() -> Path:
     tree_root = here.parent.parent.parent
     ui_data_dir = tree_root / "mechbench-ui" / "public" / "data"
     ui_data_dir.mkdir(parents=True, exist_ok=True)
-    return ui_data_dir / "step_02_layer_ablation_gemma3_4b.json"
+    return ui_data_dir / "step_34_layer_ablation_gemma3_4b.json"
 
 
 def main() -> None:
@@ -139,7 +139,7 @@ def main() -> None:
             )
 
     payload = LayerAblationPayload(
-        experiment="step_02_layer_ablation_gemma3_4b",
+        experiment="step_34_layer_ablation_gemma3_4b",
         description=(
             "Per-layer ablation: replace each of Gemma 3 4B's 34 transformer "
             "blocks with the identity (residual unchanged) and measure Δ log "
