@@ -1,4 +1,4 @@
-# Preliminary: no L23-style pivot in Gemma 3 4B (single overdetermined prompt)
+# No L23-style pivot in Gemma 3 4B; damage is front-loaded in early sliding layers
 
 A first probe for task [000187](https://github.com/mechbench/mechbench/blob/main/tasks/mechbench-experiments/open/000187-test-l23-pivot-generalization-on-26b-a4b-and-31b.md): does the L23-style architectural pivot reproduce in a Gemma family member that has *no* `num_kv_shared_layers`? The motivating Gemma 4 candidates (26B-A4B and 31B) don't fit on this 32 GB Mac at bf16; the 12B Gemma 3 hung indefinitely inside `mlx_vlm.load`. Falling back to **Gemma 3 4B** (~7 GB at bf16, 34 layers, globals at [5, 11, 17, 23, 29], no KV sharing) gets us a Gemma-family non-E-series datapoint.
 
@@ -50,15 +50,54 @@ In other words: **this single prompt cannot distinguish "no pivot exists in Gemm
 - Gemma 3 4B has no L23-style pivot (we didn't measure that — we measured a single prompt at logp=0.0).
 - The KV-boundary framing is right or wrong (4B has no KV sharing, but the prompt-confidence confound dominates).
 
-## Follow-up
+## Follow-up: FACTUAL_15 battery confirms the picture
 
-The right next step is a FACTUAL_15-equivalent battery on Gemma 3 4B with the confidence filter from `experiments/export_step_02_for_ui.py`. That gives the proper damage curve — comparable to the E4B figure — and lets us actually evaluate the pivot question. Filing as task `000189`.
+Task 000189 ran the proper FACTUAL_15 battery against Gemma 3 4B (15/15 prompts validated under `MIN_CONFIDENCE = 0.5`, top-1 probabilities 0.62–1.00 — including a couple of less-confident ones like Romeo & Juliet → "William" at p=0.62). The mean Δ log p over the 15 prompts:
 
-Until that runs, **the open question this writeup leaves is**: is L3-as-peak a real Gemma-3-4B feature (as opposed to E4B's L23 / E2B's L14 pivots), or an artifact of an overdetermined prompt? The current data is consistent with either.
+| layer | type | mean Δ log p | median |
+|---|---|---|---|
+| 0 | sliding | −14.27 | −13.87 |
+| 1 | sliding | −4.88 | −0.42 |
+| 2 | sliding | −1.01 | 0.00 |
+| 3 | sliding | **−23.13** ← peak | −24.06 |
+| 4 | sliding | −12.37 | −13.07 |
+| 5 | **global** | −1.01 | 0.00 |
+| 6 | sliding | −9.94 | −9.75 |
+| 7 | sliding | −0.30 | 0.00 |
+| 8 | sliding | −16.29 | −16.75 |
+| 9 | sliding | −0.83 | 0.00 |
+| 10 | sliding | −6.34 | −4.76 |
+| 11 | **global** | −4.17 | −0.46 |
+| 12–22 | mixed | −0.01 to −3.14 | ~0 |
+| 23 | **global** | −0.23 | 0.00 |
+| 24–28 | sliding | small | ~0 |
+| 29 | **global** | +0.03 | 0.00 |
+| 30–32 | sliding | −0.4 to −0.97 | 0.00 |
+| 33 | sliding | −0.24 | −0.06 |
+
+The top-5 most damaging layers are **L3, L8, L0, L4, L6** — every one sliding, every one in the early third of the network. The result holds when the prompt is no longer overdetermined.
+
+**Three things this resolves:**
+
+1. **No L23-style pivot in Gemma 3 4B.** Globals at [5, 11, 17, 23, 29] do not form a peak. L11 is mildly more damaging than its sliding neighbors (−4.17 vs ~−1) but it's not even in the top 5, let alone a load-bearing pivot.
+
+2. **No "invisible middle" plateau.** E4B's L10–24 band of mid-network damage doesn't appear here at all. Past L11, ablating any one layer barely registers (mean abs Δ log p < 1.6 for layers 12–32, with most at ~0).
+
+3. **The 000187 single-prompt picture was real, not a confound.** L3 remained the peak across the battery; the front-loaded shape is genuine.
+
+**What this means for the 000125 framing.** The KV-boundary candidate ("pivot = global immediately upstream of first_kv_shared") *predicts* no pivot in Gemma 3 4B because Gemma 3 has no `num_kv_shared_layers`. The data is consistent with that framing — but it's also consistent with a simpler model-scale story (4B is small enough that mid-network refinement isn't needed). To distinguish, we'd need a non-E-series Gemma 4 (26B-A4B or 31B; both currently infeasible at bf16 on this hardware) or a Gemma 3 large enough to need late-layer computation.
+
+**Heavy-tailed mean vs median.** Several layers have substantially more negative mean than median (e.g. L11: mean −4.17, median −0.46) — a few prompts pay a lot, the rest pay nothing. The "harder" prompts (Romeo and Juliet → William at p=0.62 baseline; Mona Lisa → Leonardo at p=1.00 but morphologically tricky) drag the mean down where the easy ones are unmoved. So: the late layers DO matter for some queries; they just don't matter on average for FACTUAL_15. A more semantically-difficult battery would likely shift the curve.
+
+## Side observation worth folding back
+
+Gemma 3 4B's last layer (33) is *sliding*, not global. The "last layer is always global" rule we noted in `gemma4_global_spacing.md` is therefore Gemma-4-only — Gemma 3 doesn't follow it.
 
 ## Sources
 
 - Probe script: [`bin/probe_gemma3_4b_ablation.py`](../../bin/probe_gemma3_4b_ablation.py)
-- Raw data: [`caches/gemma3_4b_layer_ablation.json`](../../caches/gemma3_4b_layer_ablation.json)
+- Battery script: [`experiments/step_02_layer_ablation_gemma3_4b.py`](../../experiments/step_02_layer_ablation_gemma3_4b.py)
+- Single-prompt raw data: `caches/gemma3_4b_layer_ablation.json` (gitignored)
+- Battery raw data: `mechbench-ui/public/data/step_02_layer_ablation_gemma3_4b.json`
 - Gemma 3 4B [config](https://huggingface.co/mlx-community/gemma-3-4b-it-bf16/raw/main/config.json)
 - Original L23 finding context: [`docs/findings/gemma4_global_spacing.md`](gemma4_global_spacing.md)

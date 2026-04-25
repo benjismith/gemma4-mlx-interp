@@ -17,6 +17,17 @@ The motivation for this writeup, from task [000125](https://github.com/mechbench
 
 (Two corrections to the working notes that motivated this task: E2B has `num_kv_shared_layers = 20`, not 21; and E2B's spacing is best read as period-5 / 4:1 ratio, not "every 5th".)
 
+## Addendum (2026-04-25): "last layer is global" is Gemma-4-only
+
+The 000189 follow-up against Gemma 3 4B confirmed the layer indices observed in the config but flagged a corner case: **Gemma 3 4B's last layer (33) is sliding, not global**. Globals are at [5, 11, 17, 23, 29] — every 6th layer matches the 5:1 ratio, but the rule terminates at L29 rather than the final layer. So:
+
+- "Last layer is global" appears to be a **Gemma 4** rule, observable in every Gemma 4 variant (E2B, E4B, 26B-A4B, 31B).
+- Gemma 3 doesn't follow it. Gemma 3 1B/4B/12B/27B all let their final layer be sliding when the modular `i % 6 == 5` pattern doesn't land on it.
+
+This is the kind of detail that's visible in the config artifacts but absent from primary Google sources — same observability problem that motivates this whole document.
+
+The downstream implication for the L23-pivot story: the "last layer is global" rule is *part of* the Gemma 4 architectural-pivot story (the final fresh-K/V global, the closing-act of the network), and **its absence in Gemma 3 weakens the case that the pivot is just an architectural-spacing artifact**. If Gemma 3 4B has no L23-style pivot — and 000189 confirms it does not — the pivot may genuinely be a Gemma-4-E-series feature, downstream of *both* the KV-boundary and the closing-global rules together.
+
 ## What the docs say
 
 The Gemma **3** tech report ([arxiv 2503.19786](https://arxiv.org/html/2503.19786v1) §2.2) names the design choice and motivates it:
