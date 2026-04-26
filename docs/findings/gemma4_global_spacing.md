@@ -78,6 +78,25 @@ I ran the predictive battery on E2B (steps 02, 04, 30/31, 33) — full writeup a
 
 Both candidates that came out of 000125 (last-layer-global rule and KV-boundary rule) have now been examined. The first is real but Gemma-4-only (000189 confirmed via Gemma 3 4B). The second was a tempting post-hoc reading that didn't survive predictive testing on E2B itself. The L23-essay's "the model does its real work at L23" claim still stands, but the architectural *explanation* of why is open again.
 
+## Update (2026-04-25 — task 000190 closes the depth-fraction reading too)
+
+After 000188 demoted the KV-boundary candidate, the data left behind a depth-fraction candidate: across both Gemma 4 sizes, the median commit layer in step_33 lands at ~0.66 of network depth (E4B 0.690, E2B 0.657 — Δ 0.033). If real, this would predict the L23-style commit phenomenon in any sufficiently-deep transformer regardless of architectural mechanism.
+
+Task 000190 ran the prediction against Gemma 3 4B (now testable through the proper mechbench-core hook system after 000192 landed). **The depth-fraction candidate also fails** — Gemma 3 4B's median commit fraction is **0.088**, with a bimodal distribution (7 of 15 prompts commit at L0, one outlier at L33). Categorically different from the E-series 0.66 cluster — not a shifted version, a structurally different distribution.
+
+Both candidate generalizations are now refuted predictively:
+
+| candidate | tested | verdict |
+|---|---|---|
+| Pivot = global immediately upstream of `first_kv_shared` | 000188 | rejected on E2B step_02 / step_33 |
+| Depth-fraction commit at ~0.66 of network depth | 000190 | rejected on Gemma 3 4B (median 0.088) |
+
+What's left intact is the **group-level** distinction (fresh-K/V globals do 5× more attention-critical work than KV-shared globals in E2B step_02/step_36) and the **family-specific** L23 phenomenon in Gemma 4 E itself (six confirming angles in E4B; one confirming and three partial-or-failing in E2B; cleanly absent in Gemma 3 4B).
+
+The narrative that fits all the current data: the L23-style pivot is **a feature of the fresh-K/V → KV-shared transition specifically**, not a feature of the boundary global, not a feature of fixed depth-fraction, and not a feature of Gemma-style transformers in general. Models that lack the transition (Gemma 3 family, Qwen 2.5 family — the latter to be confirmed via 000201) shouldn't show it; models that have the transition might or might not, depending on whether the architectural-pressure-concentration story scales (the open question for non-E-series Gemma 4, blocked on remote compute via 000194).
+
+See [`depth_fraction_pivot.md`](depth_fraction_pivot.md) for the full 000190 writeup.
+
 ## Sources
 
 - [Gemma 3 Technical Report (arxiv 2503.19786)](https://arxiv.org/html/2503.19786v1)
